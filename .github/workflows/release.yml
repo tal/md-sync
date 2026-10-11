@@ -1,0 +1,79 @@
+# On a v* tag, run CI, then attach compiled binaries to the GitHub release:
+# md-sync-darwin-arm64 (ad-hoc signed); glibc Linux builds md-sync-linux-x64 (needs AVX2), md-sync-linux-x64-baseline
+# (any x64 CPU) and md-sync-linux-arm64; musl (Alpine) builds md-sync-linux-x64-musl (needs AVX2),
+# md-sync-linux-x64-musl-baseline (any x64 CPU) and md-sync-linux-arm64-musl. The musl builds link libstdc++ and
+# libgcc dynamically: on Alpine they need `apk add libstdc++ libgcc` besides git. Which CPUs a target supports is a
+# property of the Bun release (.bun-version) that builds it: re-check this list when bumping it. On Bun 1.4.2 each
+# x64 asset and its -baseline sibling embed byte-identical runtimes (any x64 CPU); both stay, with the conservative
+# AVX2 wording, for when a later Bun splits them again.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  create-release:
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Create the release if it doesn't exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 \
+            || gh release create "$TAG" --title "$TAG" --generate-notes --verify-tag
+
+  darwin:
+    needs: create-release
+    runs-on: macos-latest   # arm64
+    steps:
+      - uses: actions/checkout@v5
+      # the Bun release the code was verified with; bump .bun-version on purpose, never float on `latest`
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - run: bun build --compile --target=bun-darwin-arm64 src/cli.ts --outfile dist/md-sync-darwin-arm64
+      # macOS SIGKILLs an unsigned compiled binary at launch.
+      - run: codesign --force --sign - dist/md-sync-darwin-arm64 && codesign --verify dist/md-sync-darwin-arm64
+      - run: dist/md-sync-darwin-arm64 --version
+      - name: Upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release upload "$TAG" dist/md-sync-darwin-arm64 --clobber
+
+  linux:
+    needs: create-release
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [linux-x64, linux-x64-baseline, linux-arm64, linux-x64-musl, linux-x64-musl-baseline, linux-arm64-musl]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # the Bun release the code was verified with; bump .bun-version on purpose, never float on `latest`
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - run: bun build --compile --target=bun-${{ matrix.target }} src/cli.ts --outfile dist/md-sync-${{ matrix.target }}
+      # The runner is glibc x64: run what it can (the musl and arm64 builds need another libc or CPU).
+      - if: matrix.target == 'linux-x64' || matrix.target == 'linux-x64-baseline'
+        run: dist/md-sync-${{ matrix.target }} --version
+      - name: Upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release upload "$TAG" "dist/md-sync-${{ matrix.target }}" --clobber

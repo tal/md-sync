@@ -24,6 +24,29 @@ Either way, `git` 2.40 or newer must be installed (md-sync replays local commits
 
   md-sync is not on npm yet. The npm name `md-sync` belongs to an unrelated third-party package, so don't install `md-sync` from the npm registry.
 
+- **As a single binary** from the [GitHub releases](../../releases). The macOS and glibc builds need nothing but `git`; the musl builds also need the C++ runtime (`apk add git libstdc++ libgcc` on Alpine):
+
+  | Asset | For |
+  |---|---|
+  | `md-sync-darwin-arm64` | Apple silicon Macs |
+  | `md-sync-linux-x64` | x64 Linux with glibc and an AVX2 CPU (most desktops and servers since about 2015) |
+  | `md-sync-linux-x64-baseline` | x64 Linux with glibc on any CPU (older or low-power CPUs such as Atom/Celeron NAS boxes, and VMs with a generic CPU model like `kvm64`) |
+  | `md-sync-linux-arm64` | arm64 Linux with glibc (Raspberry Pi OS 64-bit, Ubuntu) |
+  | `md-sync-linux-x64-musl` | Alpine and other musl-based systems on an AVX2 CPU |
+  | `md-sync-linux-x64-musl-baseline` | Alpine and other musl-based systems on any x64 CPU |
+  | `md-sync-linux-arm64-musl` | Alpine and other musl-based systems on arm64 |
+
+  A glibc build on Alpine fails with `not found`, a musl build without `libstdc++` fails with `Error loading shared library libstdc++.so.6`, and an AVX2 build on a CPU without it dies with `Illegal instruction`: pick the `-baseline` asset (glibc or musl) then.
+
+  ```sh
+  # Replace <owner> with the GitHub owner of this repo, and pick your platform's file.
+  curl -fL -o ~/.local/bin/md-sync https://github.com/<owner>/md-sync/releases/latest/download/md-sync-linux-x64
+  chmod +x ~/.local/bin/md-sync
+  md-sync --version
+  ```
+
+  The macOS binary is ad-hoc signed. If you downloaded it with a browser, clear the quarantine flag with `xattr -d com.apple.quarantine md-sync`.
+
 ## Quick start
 
 **From a clone, with nothing to configure.** In the top folder of a git checkout that has an `origin` remote:
@@ -221,6 +244,54 @@ md-sync uninstall-service --dir ~/agent-notes
 - **Liveness:** if the daemon's event loop ever stops running (a native deadlock looks alive to the service manager and ignores `SIGTERM`), a watchdog thread logs `event loop stalled` and kills the process after 60 s, so the service manager restarts it.
 - **Shutdown:** on `SIGTERM`, md-sync finishes the current sync, commits and pushes anything pending, then exits, within 240 s. The units allow 300 s before a forced kill. A push that can't finish in time stays as a local commit, and the next start pushes it.
 
+## Container
+
+The [`Dockerfile`](./Dockerfile) is an example image based on `oven/bun:slim`, with `git`, `openssh-client` and `tini`. `tini` runs as PID 1: it reaps orphaned `ssh` and `git` children and forwards `SIGTERM` to md-sync. The synced folder is the `/data` volume, state goes in `/state`, and the default config file is `/config/mdsync/config.json`. md-sync runs as the image's unprivileged `bun` user (uid 1000), so what it writes into your folder is owned by you, not root, as long as you create the folder yourself first: for a bind source that doesn't exist yet, Docker creates it owned by root, and the container can't clone into it.
+
+```sh
+docker build -t md-sync .
+mkdir -p ~/agent-notes   # before the first run: a folder Docker creates belongs to root
+
+# HTTPS with a token (GIT_TOKEN is read from your shell's environment):
+docker run -d --name agent-notes --restart unless-stopped --stop-timeout 300 \
+  -e GIT_TOKEN \
+  -v ~/agent-notes:/data -v agent-notes-state:/state \
+  md-sync run --dir /data --remote https://github.com/tal/agent-notes.git --branch main
+
+# SSH with a mounted key plus known_hosts (there is no tty to answer a host-key prompt):
+docker run -d --name agent-notes --restart unless-stopped --stop-timeout 300 \
+  -v ~/.ssh/id_ed25519:/home/bun/.ssh/id_ed25519:ro \
+  -v ~/.ssh/known_hosts:/home/bun/.ssh/known_hosts:ro \
+  -v ~/agent-notes:/data -v agent-notes-state:/state \
+  md-sync run --dir /data --remote git@github.com:tal/agent-notes.git --branch main
+```
+
+- **Stop timeout:** Docker's default stop grace period is 10 s, which isn't enough to commit and push on `SIGTERM`. Use `--stop-timeout 300`, or `stop_grace_period: 5m` in compose.
+- **Flush from inside the container:** `docker exec agent-notes bun /app/src/cli.ts flush --dir /data`. A host-side `md-sync flush` can't reach the container's socket, and it can't see the container's lock either: it would start a second, competing sync of the same folder. Use `docker exec`.
+- The image trusts every repo path (`safe.directory=*`), because a bind-mounted folder is usually owned by a different uid than the container user.
+- **Your uid:** the image runs as uid 1000, the first user on most Linux desktops. If your uid differs (`id -u`), add `--user "$(id -u):$(id -g)"` (compose: `user: "1001:1001"`), or files the container writes won't be yours. That works with `GIT_TOKEN`; ssh refuses to run for a uid with no passwd entry in the image, so use HTTPS then.
+- **Upgrading from an image that ran as root:** hand the folder and the state volume to the container user once, for example `docker run --rm --user 0 -v ~/agent-notes:/data -v agent-notes-state:/state --entrypoint chown md-sync -R 1000:1000 /data /state` (use your uid if you run with `--user`). md-sync refuses a state dir owned by another uid.
+- **Host-side git on the mounted folder:** the container can't see your host's processes, so md-sync waits 10 minutes (instead of 1) before it treats a git lock or a stopped rebase or merge in the folder as abandoned and cleans it up.
+- **One state volume per synced folder.** Every container sees its folder as `/data`, so state is keyed by that same path in each one. Give each instance its own state volume (`agent-notes-state`, `work-notes-state`, …), and never share or reuse one across folders: two containers on one volume would both think they hold the folder lock.
+
+With compose (create `~/agent-notes` first, as above):
+
+```yaml
+services:
+  md-sync:
+    build: .
+    command: ["run", "--dir", "/data", "--remote", "https://github.com/tal/agent-notes.git", "--branch", "main"]
+    environment:
+      GIT_TOKEN: ${GIT_TOKEN}
+    volumes:
+      - ~/agent-notes:/data
+      - agent-notes-state:/state
+    stop_grace_period: 5m
+    restart: unless-stopped
+volumes:
+  agent-notes-state:
+```
+
 ## Conflicts
 
 When two writers edit the same lines, md-sync keeps both versions and keeps syncing. It never auto-resolves with `-X ours/theirs` and never waits for a human.
@@ -299,5 +370,8 @@ bun run build            # bun build --compile src/cli.ts --outfile dist/md-sync
 ```
 
 - **macOS:** the compiled binary must be ad-hoc re-signed or macOS kills it at launch: `codesign --force --sign - dist/md-sync`.
+- **Binary smoke test:** `MDSYNC_BIN=$PWD/dist/md-sync bun test ./test/smoke.test.ts`.
+- **Container smoke test:** `docker build -t md-sync:dev . && bash test/container-smoke.sh md-sync:dev`.
+- CI (`.github/workflows/ci.yml`) explicitly runs all three test suites on Linux and macOS, the binary smoke test on both, and the container smoke test. Tagging `v*` builds the release binaries (`.github/workflows/release.yml`).
 
 To use a separate SSH private key for one repo, add `"sshKey": "~/.ssh/notes_ed25519"` to its instance config, or pass `--ssh-key ~/.ssh/notes_ed25519`. Use an SSH remote URL. Relative key paths resolve from the instance config directory (CLI paths from the current directory). Changes apply on restart or SIGHUP. md-sync uses noninteractive SSH with `IdentitiesOnly=yes` and disables connection reuse for this identity; encrypted keys must already be unlocked in your SSH agent. Without `sshKey`, existing git authentication is used. Keep the private key outside the synced folder; config contains only its path.

@@ -1,0 +1,76 @@
+# Tests on Linux and macOS, a compiled-binary smoke test on both, and the container smoke test.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:   # release.yml runs this before building
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    # a hung test (a frozen watcher, a stuck child) fails the job instead of holding a runner for 6 hours; macOS runs
+    # the acceptance suite twice (about 6 min each locally), and both run the move's fallback modes
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      # the Bun release the code was verified with; bump .bun-version on purpose, never float on `latest`
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun test
+      - run: bun run test:integration
+      - run: bun run test:acceptance
+      # Linux daemons poll; the acceptance suite runs on that backend on macOS too, so a test that only holds
+      # with FSEvents' immediate reports fails here as well (review round 4: tests 14 and 22).
+      - if: runner.os == 'macOS'
+        run: MDSYNC_TEST_WATCHER=poll bun test ./test/acceptance
+      # the worktree move's fallback modes: filesystems without an atomic exchange (rename-only:
+      # NFS, SMB, FUSE) or without hard links either (copy-only: exFAT). Chaos never runs rename-only: that mode's
+      # accepted µs window for atomic saves would fail D28_MAX = 0 by design.
+      - run: MDSYNC_TEST_EXCHANGE_MODE=rename-only bun test ./test/acceptance/33-concurrent-writes.test.ts
+      - run: MDSYNC_TEST_EXCHANGE_MODE=copy-only bun test ./test/acceptance/33-concurrent-writes.test.ts
+      - run: MDSYNC_TEST_EXCHANGE_MODE=copy-only bun test ./test/acceptance/32-chaos.test.ts
+
+  binary-smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      # the Bun release the code was verified with; bump .bun-version on purpose, never float on `latest`
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      # macOS SIGKILLs an unsigned `bun build --compile` binary at launch.
+      - if: runner.os == 'macOS'
+        run: codesign --force --sign - dist/md-sync && codesign --verify dist/md-sync
+      - run: dist/md-sync --version
+      - run: MDSYNC_BIN="$PWD/dist/md-sync" bun test ./test/smoke.test.ts
+
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build --build-arg BUN_VERSION="$(cat .bun-version)" -t md-sync:ci .
+      - run: bash test/container-smoke.sh md-sync:ci

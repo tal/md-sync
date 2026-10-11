@@ -1,0 +1,13 @@
+# Only package.json, bun.lock and src/ go into the image.
+.git
+.github
+node_modules
+dist
+coverage
+test
+docs
+changelog
+*.log
+*.md
+Dockerfile
+.dockerignore
