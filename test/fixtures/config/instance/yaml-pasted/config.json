@@ -1,0 +1,3 @@
+remote: git@github.com:tal/agent-notes.git
+dir: ~/agent-notes
+idleMs: 120000

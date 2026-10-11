@@ -1,0 +1,10 @@
+{
+  "note": "A user copies the example instance file from the README verbatim, placeholder topic and all.",
+  "gap": "The literal placeholder passes validation, so a verbatim copy subscribes to (and the notify workflow publishes to) a public topic shared with everyone else who copied it.",
+  "kind": "ok",
+  "value": {
+    "ntfyUrl": "https://ntfy.sh/<long-random-topic>",
+    "remote": "git@github.com:tal/agent-notes.git",
+    "dir": "$HOME/agent-notes"
+  }
+}

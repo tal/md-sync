@@ -1,0 +1,8 @@
+{
+  "note": "A user used to VS Code settings or tsconfig annotates the file with // comments.",
+  "gap": "The message names the \"/\" token but never says that comments are not allowed in the config file.",
+  "kind": "invalid",
+  "errors": [
+    "invalid config file $CASE/config.json: invalid JSON: SyntaxError: JSON Parse error: Unrecognized token '/'"
+  ]
+}

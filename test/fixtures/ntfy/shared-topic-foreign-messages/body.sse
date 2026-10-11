@@ -1,0 +1,18 @@
+event: open
+data: {"id":"hM2xK7pQ4vRt","time":1791562000,"event":"open","topic":"home-alerts"}
+
+data: {"id":"aB3cD4eF5gH6","time":1791562011,"expires":1791605211,"event":"message","topic":"home-alerts","title":"Backup finished","message":"nas01: 412 GB in 3h12m","priority":2,"tags":["floppy_disk"]}
+
+data: {"id":"jK7lM8nP9qR0","time":1791562019,"expires":1791605219,"event":"message","topic":"home-alerts","title":"Doorbell","message":"Someone is at the front door","priority":5,"tags":["bell","warning"],"click":"https://cam.home.example/front"}
+
+data: {"id":"sT1uV2wX3yZ4","time":1791562027,"expires":1791605227,"event":"message","topic":"home-alerts","message":"You received a file: invoice-2026-10.pdf","attachment":{"name":"invoice-2026-10.pdf","type":"application/pdf","size":48213,"expires":1791572827,"url":"https://ntfy.sh/file/sT1uV2wX3yZ4.pdf"}}
+
+data: {"id":"cD5eF6gH7jK8","time":1791562033,"expires":1791605233,"event":"message","topic":"home-alerts","title":"Disk check","message":"deadbeef cafe","actions":[{"id":"x1","action":"view","label":"Open NAS","url":"https://nas.home.example","clear":false}]}
+
+data: {"id":"mN9pQ0rS1tU2","time":1791562040,"expires":1791605240,"event":"message","topic":"home-alerts","message":"Deploy **v2.4.1** done","content_type":"text/markdown"}
+
+event: keepalive
+data: {"id":"vW3xY4zA5bC6","time":1791562085,"event":"keepalive","topic":"home-alerts"}
+
+data: {"id":"dE7fG8hJ9kL0","time":1791562090,"expires":1791605290,"event":"message","topic":"home-alerts","message":"9b2e4f1c0a7d6e5b4c3a29180f7e6d5c4b3a2918"}
+

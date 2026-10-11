@@ -1,0 +1,7 @@
+{
+  "note": "A user brings .gitignore habits and re-includes one file with a ! pattern.",
+  "kind": "invalid",
+  "errors": [
+    "invalid config key \"ignore.1\" in $CASE/config.json: negated patterns are not supported"
+  ]
+}

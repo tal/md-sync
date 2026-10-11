@@ -1,0 +1,5 @@
+{
+  "remote": "git@git.example.home:tal/agent-notes.git",
+  "dir": "~/agent-notes",
+  "ntfyUrl": "https://ntfy.example.home/agent-notes?auth=QmFzaWMgZEdGc09tTnZjbkpsWTNRdGFHOXljMlU9"
+}

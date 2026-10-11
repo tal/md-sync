@@ -1,0 +1,8 @@
+{
+  "remote": "git@github.com:tal/agent-notes.git",
+  "dir": "~/agent-notes",
+  "ignore": [
+    "drafts/",
+    "*.tmp",
+  ],
+}

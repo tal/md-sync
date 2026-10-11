@@ -1,0 +1,12 @@
+{
+  "remote": "https://github.com/tal/agent-notes.git",
+  "dir": "/srv/mdsync/agent-notes",
+  "branch": "main",
+  "ntfyUrl": "https://ntfy.sh/agent-notes-4f9c2e7b1d8a",
+  "idleMs": 120000,
+  "fallbackMs": 3600000,
+  "maxWaitMs": 1800000,
+  "ignore": ["drafts/", "*.tmp", ".obsidian/workspace.json"],
+  "authorName": "notes-server",
+  "authorEmail": "notes-server@example.com"
+}

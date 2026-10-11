@@ -1,0 +1,6 @@
+{
+  // where the notes live
+  "remote": "git@github.com:tal/agent-notes.git",
+  "dir": "~/agent-notes",
+  "idleMs": 120000 // 2 minutes
+}

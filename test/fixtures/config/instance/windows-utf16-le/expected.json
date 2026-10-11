@@ -1,0 +1,8 @@
+{
+  "note": "Windows Notepad's \"Unicode\" encoding and PowerShell 5's > redirect save UTF-16LE with a BOM.",
+  "gap": "A UTF-16 file fails with an unrecognized \"�\" token and no hint that the file must be saved as UTF-8.",
+  "kind": "invalid",
+  "errors": [
+    "invalid config file $CASE/config.json: invalid JSON: SyntaxError: JSON Parse error: Unrecognized token '�'"
+  ]
+}

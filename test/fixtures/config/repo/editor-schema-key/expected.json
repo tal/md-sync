@@ -1,0 +1,15 @@
+{
+  "note": "An editor, or a habit from other tools, adds a $schema key for completion and validation.",
+  "kind": "ok",
+  "value": {
+    "ignore": [
+      "drafts/"
+    ]
+  },
+  "warnings": [
+    {
+      "key": "$schema",
+      "reason": "unknown"
+    }
+  ]
+}

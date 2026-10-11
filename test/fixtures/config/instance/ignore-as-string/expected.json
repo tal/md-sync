@@ -1,0 +1,7 @@
+{
+  "note": "A user with one pattern writes it as a plain string, as the repeatable --ignore flag allows.",
+  "kind": "invalid",
+  "errors": [
+    "invalid config key \"ignore\" in $CASE/config.json: Invalid input: expected array, received string"
+  ]
+}

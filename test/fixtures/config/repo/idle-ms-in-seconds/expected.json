@@ -1,0 +1,9 @@
+{
+  "note": "A teammate assumes seconds and writes 120 for two minutes.",
+  "gap": "The message never says the unit is milliseconds, so a user thinking in seconds may \"fix\" it to 1000 and get a one-second timer.",
+  "kind": "invalid",
+  "errors": [
+    "invalid config key \"idleMs\" in .config/mdsync.json: Too small: expected number to be >=1000"
+  ],
+  "warnings": []
+}

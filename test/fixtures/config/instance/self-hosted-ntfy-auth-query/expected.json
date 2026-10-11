@@ -1,0 +1,9 @@
+{
+  "note": "A self-hosted ntfy server with access control gets its token through the documented ?auth= query parameter.",
+  "kind": "ok",
+  "value": {
+    "ntfyUrl": "https://ntfy.example.home/agent-notes?auth=QmFzaWMgZEdGc09tTnZjbkpsWTNRdGFHOXljMlU9",
+    "remote": "git@git.example.home:tal/agent-notes.git",
+    "dir": "$HOME/agent-notes"
+  }
+}

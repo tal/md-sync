@@ -1,0 +1,30 @@
+{
+  "note": "An event stream (a misbehaving server or proxy) sends one line far longer than SSE_MAX_LINE and never finishes it.",
+  "source": "synthesized: a 200 text/event-stream response that is one 78 KB `data:` line with no newline",
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "text/event-stream; charset=utf-8"
+    },
+    "chunks": [
+      "data: ",
+      {
+        "repeat": "window.__a=1;",
+        "times": 6000
+      }
+    ],
+    "end": "hang"
+  },
+  "expect": {
+    "connects": 1,
+    "shas": [],
+    "ignored": [],
+    "disconnects": [
+      {
+        "level": "warn",
+        "error": "SSE line too long",
+        "retryInMs": 1000
+      }
+    ]
+  }
+}

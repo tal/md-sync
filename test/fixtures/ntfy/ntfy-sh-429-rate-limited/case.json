@@ -1,0 +1,32 @@
+{
+  "note": "ntfy.sh (or a proxy in front of it) rate-limits this IP and asks the client to come back in 120 s.",
+  "source": "synthesized: ntfy's 42901 \"limit reached: too many requests\" JSON body plus a Retry-After header as a fronting proxy sends it",
+  "gap": "Retry-After is ignored: the next attempts come after 1 s, then 2 s, which keeps hitting a server that asked for 120 s.",
+  "response": {
+    "status": 429,
+    "headers": {
+      "content-type": "application/json",
+      "access-control-allow-origin": "*",
+      "retry-after": "120"
+    },
+    "bodyFile": "body.json",
+    "end": "close"
+  },
+  "expect": {
+    "connects": 0,
+    "shas": [],
+    "ignored": [],
+    "disconnects": [
+      {
+        "level": "warn",
+        "error": "HTTP 429",
+        "retryInMs": 1000
+      },
+      {
+        "level": "warn",
+        "error": "HTTP 429",
+        "retryInMs": 2000
+      }
+    ]
+  }
+}

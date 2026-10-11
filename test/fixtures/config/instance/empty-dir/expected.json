@@ -1,0 +1,7 @@
+{
+  "note": "A user leaves a template's dir blank, meaning to fill it in later or expecting the current directory.",
+  "kind": "invalid",
+  "errors": [
+    "invalid config key \"dir\" in $CASE/config.json: Too small: expected string to have >=1 characters"
+  ]
+}

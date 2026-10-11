@@ -1,0 +1,20 @@
+{
+  "note": "The TCP connection is accepted but no response ever comes (a stalled reverse proxy waiting on a hung upstream, a black-holing middlebox).",
+  "source": "synthesized: a server that accepts the request and never sends a status line",
+  "response": {
+    "end": "no-headers"
+  },
+  "expect": {
+    "connects": 0,
+    "shas": [],
+    "ignored": [],
+    "advanceMs": 120000,
+    "disconnects": [
+      {
+        "level": "warn",
+        "error": "no data for 120 s",
+        "retryInMs": 1000
+      }
+    ]
+  }
+}

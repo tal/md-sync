@@ -1,0 +1,38 @@
+{
+  "note": "The user pasted the subscription URL (`https://ntfy.sh/<topic>/sse`) as ntfyUrl, so mdsync asks for `/<topic>/sse/sse` and ntfy.sh answers 404.",
+  "source": "captured: ntfy.sh 2026-10-09 (GET /<topic>/sse/sse; /<topic>/json/sse and a 70-character topic return the same bytes)",
+  "gap": "A 404 for a wrong ntfyUrl is retried forever on the outage backoff at warn level; the error is only `HTTP 404`, with no hint that ntfyUrl must be the topic URL.",
+  "url": "/{topic}/sse",
+  "response": {
+    "status": 404,
+    "headers": {
+      "server": "nginx",
+      "content-type": "application/json",
+      "access-control-allow-origin": "*"
+    },
+    "bodyFile": "body.json",
+    "end": "close"
+  },
+  "expect": {
+    "connects": 0,
+    "shas": [],
+    "ignored": [],
+    "disconnects": [
+      {
+        "level": "warn",
+        "error": "HTTP 404",
+        "retryInMs": 1000
+      },
+      {
+        "level": "warn",
+        "error": "HTTP 404",
+        "retryInMs": 2000
+      },
+      {
+        "level": "warn",
+        "error": "HTTP 404",
+        "retryInMs": 4000
+      }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "note": "A device running a newer mdsync committed a key this version does not know yet.",
+  "kind": "ok",
+  "value": {
+    "idleMs": 120000
+  },
+  "warnings": [
+    {
+      "key": "quietHours",
+      "reason": "unknown"
+    }
+  ]
+}

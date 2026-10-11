@@ -1,0 +1,6 @@
+{
+  "remote": "git@github.com:tal/agent-notes.git",
+  "dir": "~/agent-notes",
+  "idle_ms": 120000,
+  "ntfy_url": "https://ntfy.sh/agent-notes-4f9c2e7b1d8a"
+}

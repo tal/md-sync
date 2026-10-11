@@ -1,0 +1,33 @@
+{
+  "note": "ntfyUrl is `https://ntfy.sh` with no topic: ntfy.sh serves its web app for `/sse` as 200 text/html (an invalid topic such as `/bad.topic!/sse` gets the same page).",
+  "source": "captured: ntfy.sh 2026-10-09 (GET /sse and GET /bad.topic!/sse, identical 4485-byte bodies)",
+  "url": "/",
+  "response": {
+    "status": 200,
+    "headers": {
+      "server": "nginx",
+      "content-type": "text/html; charset=utf-8",
+      "accept-ranges": "bytes",
+      "last-modified": "Wed, 07 Oct 2026 19:12:36 GMT"
+    },
+    "bodyFile": "body.html",
+    "end": "close"
+  },
+  "expect": {
+    "connects": 0,
+    "shas": [],
+    "ignored": [],
+    "disconnects": [
+      {
+        "level": "warn",
+        "error": "not an event stream (text/html): check that ntfyUrl names a topic",
+        "retryInMs": 1000
+      },
+      {
+        "level": "warn",
+        "error": "not an event stream (text/html): check that ntfyUrl names a topic",
+        "retryInMs": 2000
+      }
+    ]
+  }
+}

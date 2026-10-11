@@ -1,0 +1,30 @@
+{
+  "note": "Hotel Wi-Fi intercepts the plain-http self-hosted ntfyUrl and answers 200 text/html with its login page.",
+  "source": "synthesized: a typical captive portal page (meta refresh to the portal, room-number login form)",
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "no-cache, no-store, must-revalidate"
+    },
+    "bodyFile": "body.html",
+    "end": "close"
+  },
+  "expect": {
+    "connects": 0,
+    "shas": [],
+    "ignored": [],
+    "disconnects": [
+      {
+        "level": "warn",
+        "error": "not an event stream (text/html): check that ntfyUrl names a topic",
+        "retryInMs": 1000
+      },
+      {
+        "level": "warn",
+        "error": "not an event stream (text/html): check that ntfyUrl names a topic",
+        "retryInMs": 2000
+      }
+    ]
+  }
+}

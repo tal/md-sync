@@ -1,0 +1,7 @@
+{
+  "note": "A user used to YAML configs writes the settings as YAML but keeps the .json name.",
+  "kind": "invalid",
+  "errors": [
+    "invalid config file $CASE/config.json: invalid JSON: SyntaxError: JSON Parse error: Unexpected identifier \"remote\""
+  ]
+}

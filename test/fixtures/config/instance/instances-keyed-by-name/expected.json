@@ -1,0 +1,8 @@
+{
+  "note": "A user groups two folders' settings under names in one file, docker-compose style.",
+  "kind": "invalid",
+  "errors": [
+    "invalid config key \"notes\" in $CASE/config.json: unknown key",
+    "invalid config key \"work\" in $CASE/config.json: unknown key"
+  ]
+}

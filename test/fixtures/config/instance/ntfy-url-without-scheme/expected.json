@@ -1,0 +1,7 @@
+{
+  "note": "A user copies the topic as the ntfy app displays it, without https://.",
+  "kind": "invalid",
+  "errors": [
+    "invalid config key \"ntfyUrl\" in $CASE/config.json: Invalid URL"
+  ]
+}

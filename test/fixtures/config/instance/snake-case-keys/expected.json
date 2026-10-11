@@ -1,0 +1,9 @@
+{
+  "note": "A user guesses snake_case key names, as in many YAML and TOML configs.",
+  "gap": "Each key is just \"unknown key\", with no suggestion of the camelCase name (idleMs, ntfyUrl) the user meant.",
+  "kind": "invalid",
+  "errors": [
+    "invalid config key \"idle_ms\" in $CASE/config.json: unknown key",
+    "invalid config key \"ntfy_url\" in $CASE/config.json: unknown key"
+  ]
+}

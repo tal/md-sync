@@ -1,0 +1,9 @@
+{
+  "note": "A user writes $HOME in dir out of shell habit, expecting it to be expanded like ~.",
+  "gap": "$HOME is not expanded: dir silently becomes a folder literally named \"$HOME\" next to the config file, and mdsync would clone into it.",
+  "kind": "ok",
+  "value": {
+    "remote": "git@github.com:tal/agent-notes.git",
+    "dir": "$CASE/$$HOME/agent-notes"
+  }
+}

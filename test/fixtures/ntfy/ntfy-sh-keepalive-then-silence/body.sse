@@ -1,0 +1,6 @@
+event: open
+data: {"id":"vJI9bSEIYlZJ","time":1791559978,"event":"open","topic":"mdsync-fixture-af79b62a8f5b071f"}
+
+event: keepalive
+data: {"id":"GnyLNxKwIbmR","time":1791560023,"event":"keepalive","topic":"mdsync-fixture-af79b62a8f5b071f"}
+

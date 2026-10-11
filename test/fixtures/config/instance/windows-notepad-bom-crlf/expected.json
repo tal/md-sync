@@ -1,0 +1,9 @@
+{
+  "note": "Older Windows Notepad saves UTF-8 with a BOM and CRLF line endings, and the file is copied as-is to the Linux box that runs mdsync.",
+  "kind": "ok",
+  "value": {
+    "idleMs": 60000,
+    "remote": "https://github.com/tal/agent-notes.git",
+    "dir": "$HOME/agent-notes"
+  }
+}

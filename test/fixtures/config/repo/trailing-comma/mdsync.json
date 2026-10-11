@@ -1,0 +1,6 @@
+{
+  "ignore": [
+    "drafts/",
+  ],
+  "idleMs": 120000
+}

@@ -1,0 +1,8 @@
+{
+  "note": "A teammate copies .gitignore lines, including a ! re-include, into the shared ignore list.",
+  "kind": "invalid",
+  "errors": [
+    "invalid config key \"ignore.1\" in .config/mdsync.json: negated patterns are not supported"
+  ],
+  "warnings": []
+}

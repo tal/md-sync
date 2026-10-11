@@ -1,0 +1,34 @@
+{
+  "note": "ntfy.sh sends its real `open` event, then the server restarts and closes the stream, twice in a row.",
+  "source": "captured: ntfy.sh 2026-10-09 (the open event; the close after it stands in for a server restart)",
+  "response": {
+    "status": 200,
+    "headers": {
+      "server": "nginx",
+      "content-type": "text/event-stream; charset=utf-8",
+      "access-control-allow-origin": "*"
+    },
+    "bodyFile": "body.sse",
+    "end": "close"
+  },
+  "expect": {
+    "connects": 2,
+    "shas": [],
+    "ignored": [
+      "not-message",
+      "not-message"
+    ],
+    "disconnects": [
+      {
+        "level": "warn",
+        "error": "stream ended",
+        "retryInMs": 1000
+      },
+      {
+        "level": "warn",
+        "error": "stream ended",
+        "retryInMs": 2000
+      }
+    ]
+  }
+}

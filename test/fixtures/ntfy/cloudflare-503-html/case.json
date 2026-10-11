@@ -1,0 +1,29 @@
+{
+  "note": "A self-hosted ntfy proxied through Cloudflare while the origin is unavailable: Cloudflare serves its HTML error page.",
+  "source": "synthesized: modeled on Cloudflare's 5xx error page and headers (cf-ray, server: cloudflare), shortened",
+  "response": {
+    "status": 503,
+    "headers": {
+      "server": "cloudflare",
+      "content-type": "text/html; charset=UTF-8",
+      "cf-ray": "8c1f2e3d4a5b6c7d-FRA",
+      "cache-control": "private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+      "x-frame-options": "SAMEORIGIN",
+      "referrer-policy": "same-origin"
+    },
+    "bodyFile": "body.html",
+    "end": "close"
+  },
+  "expect": {
+    "connects": 0,
+    "shas": [],
+    "ignored": [],
+    "disconnects": [
+      {
+        "level": "warn",
+        "error": "HTTP 503",
+        "retryInMs": 1000
+      }
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "note": "A user tries to configure two synced folders in one file as a list (mdsync takes one file per folder).",
+  "kind": "invalid",
+  "errors": [
+    "invalid config file $CASE/config.json: Invalid input: expected object, received array"
+  ]
+}

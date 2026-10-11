@@ -1,0 +1,4 @@
+{
+  "note": "The file was never created at the path mdsync reads, or --config names a path with a typo.",
+  "kind": "missing"
+}

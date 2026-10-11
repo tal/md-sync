@@ -1,0 +1,24 @@
+{
+  "note": "The self-hosted ntfy host is up but nothing listens on the port (ntfy stopped, wrong port).",
+  "source": "synthesized: a closed port on 127.0.0.1",
+  "response": {
+    "network": "refused"
+  },
+  "expect": {
+    "connects": 0,
+    "shas": [],
+    "ignored": [],
+    "disconnects": [
+      {
+        "level": "warn",
+        "error": "TypeError: Unable to connect. Is the computer able to access the url?",
+        "retryInMs": 1000
+      },
+      {
+        "level": "warn",
+        "error": "TypeError: Unable to connect. Is the computer able to access the url?",
+        "retryInMs": 2000
+      }
+    ]
+  }
+}

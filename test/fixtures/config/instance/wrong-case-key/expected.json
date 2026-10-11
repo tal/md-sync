@@ -1,0 +1,8 @@
+{
+  "note": "A user capitalizes the acronym the way Go and Swift style would (ntfyURL).",
+  "gap": "\"unknown key\" gives no hint that the key differs from ntfyUrl only in letter case.",
+  "kind": "invalid",
+  "errors": [
+    "invalid config key \"ntfyURL\" in $CASE/config.json: unknown key"
+  ]
+}

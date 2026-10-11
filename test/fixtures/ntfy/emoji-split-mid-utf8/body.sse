@@ -1,0 +1,7 @@
+event: open
+data: {"id":"Xq2v8oNKp3Ld","time":1791563000,"event":"open","topic":"notes-sync"}
+
+data: {"id":"bL7cY1sQe9Tz","time":1791563012,"expires":1791606212,"event":"message","topic":"notes-sync","title":"Weekly notes 📝","message":"Ship it 🚀 — all synced","tags":["tada"]}
+
+data: {"id":"Rr4mW0kVd2Jh","time":1791563025,"expires":1791606225,"event":"message","topic":"notes-sync","title":"✅ pushed from laptop","message":"3f9c2e1a7b6d5c4e3f2a1b0c9d8e7f6a5b4c3d2e"}
+

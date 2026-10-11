@@ -1,0 +1,7 @@
+{
+  "note": "A user lists two folders in dir, hoping one daemon will sync both.",
+  "kind": "invalid",
+  "errors": [
+    "invalid config key \"dir\" in $CASE/config.json: Invalid input: expected string, received array"
+  ]
+}

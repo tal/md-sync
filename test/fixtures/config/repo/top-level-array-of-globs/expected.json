@@ -1,0 +1,8 @@
+{
+  "note": "A user assumes the repo file is just a list of ignore globs, a .gitignore in JSON.",
+  "kind": "invalid",
+  "errors": [
+    "invalid config file .config/mdsync.json: Invalid input: expected object, received array"
+  ],
+  "warnings": []
+}

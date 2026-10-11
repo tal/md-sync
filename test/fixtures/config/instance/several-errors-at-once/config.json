@@ -1,0 +1,8 @@
+{
+  "remote": "",
+  "dir": "~/agent-notes",
+  "branch": "my notes",
+  "idleMs": "5m",
+  "ignore": ["*.tmp", "!keep.tmp"],
+  "ntfy_url": "https://ntfy.sh/agent-notes-4f9c2e7b1d8a"
+}

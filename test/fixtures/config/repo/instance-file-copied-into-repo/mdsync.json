@@ -1,0 +1,7 @@
+{
+  "remote": "git@github.com:tal/agent-notes.git",
+  "dir": "~/agent-notes",
+  "authorName": "tal-macbook",
+  "ntfyUrl": "https://ntfy.sh/agent-notes-4f9c2e7b1d8a",
+  "ignore": ["drafts/"]
+}

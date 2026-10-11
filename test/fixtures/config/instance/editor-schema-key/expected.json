@@ -1,0 +1,8 @@
+{
+  "note": "An editor, or a habit from other tools, adds a $schema key for completion and validation.",
+  "gap": "An editor $schema key stops the daemon from starting, while the repo file only warns about the same key.",
+  "kind": "invalid",
+  "errors": [
+    "invalid config key \"$schema\" in $CASE/config.json: unknown key"
+  ]
+}

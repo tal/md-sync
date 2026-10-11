@@ -1,0 +1,8 @@
+{
+  "note": "A user writes a human duration, as many tools accept.",
+  "gap": "The file gets zod's generic \"expected number, received string\" while the same mistake on the CLI gets \"expected a whole number of milliseconds, got \\\"5m\\\"\".",
+  "kind": "invalid",
+  "errors": [
+    "invalid config key \"idleMs\" in $CASE/config.json: Invalid input: expected number, received string"
+  ]
+}

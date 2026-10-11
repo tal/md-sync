@@ -1,0 +1,9 @@
+{
+  "note": "A home-lab ntfy server on the LAN is reached over plain HTTP on a custom port.",
+  "kind": "ok",
+  "value": {
+    "ntfyUrl": "http://192.168.1.20:8090/agent-notes",
+    "remote": "git@github.com:tal/agent-notes.git",
+    "dir": "$HOME/agent-notes"
+  }
+}

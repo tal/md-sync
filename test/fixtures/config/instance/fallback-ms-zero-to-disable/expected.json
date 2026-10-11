@@ -1,0 +1,7 @@
+{
+  "note": "A user sets the catch-up timer to 0 to turn it off and rely on ntfy alone.",
+  "kind": "invalid",
+  "errors": [
+    "invalid config key \"fallbackMs\" in $CASE/config.json: Too small: expected number to be >=1000"
+  ]
+}

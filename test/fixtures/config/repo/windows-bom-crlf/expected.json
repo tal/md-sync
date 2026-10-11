@@ -1,0 +1,11 @@
+{
+  "note": "A teammate edits the shared file in Windows Notepad (BOM, CRLF) and git keeps the bytes (core.autocrlf=false).",
+  "kind": "ok",
+  "value": {
+    "idleMs": 120000,
+    "ignore": [
+      "drafts/"
+    ]
+  },
+  "warnings": []
+}

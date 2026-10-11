@@ -1,0 +1,44 @@
+{
+  "note": "The topic is shared with other publishers: messages with titles, tags, priority, a click URL, an attachment, actions and markdown arrive before mdsync's own sha.",
+  "source": "synthesized: ntfy message events in its documented JSON shape (field order as ntfy encodes them)",
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "text/event-stream; charset=utf-8",
+      "access-control-allow-origin": "*"
+    },
+    "bodyFile": "body.sse",
+    "splitAt": [
+      96,
+      301,
+      549,
+      859,
+      1120,
+      1294,
+      1400
+    ],
+    "end": "close"
+  },
+  "expect": {
+    "connects": 1,
+    "shas": [
+      "9b2e4f1c0a7d6e5b4c3a29180f7e6d5c4b3a2918"
+    ],
+    "ignored": [
+      "not-message",
+      "not-sha",
+      "not-sha",
+      "not-sha",
+      "not-sha",
+      "not-sha",
+      "not-message"
+    ],
+    "disconnects": [
+      {
+        "level": "warn",
+        "error": "stream ended",
+        "retryInMs": 1000
+      }
+    ]
+  }
+}

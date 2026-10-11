@@ -1,0 +1,30 @@
+{
+  "note": "The connection drops (mobile handover, proxy timeout) in the middle of a message event: the sha is complete but the event never ends.",
+  "source": "synthesized: ntfy SSE framing (`data: <json>\\n\\n`), cut before the closing brace and the blank line",
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "text/event-stream; charset=utf-8",
+      "access-control-allow-origin": "*"
+    },
+    "bodyFile": "body.sse",
+    "splitAt": [
+      95
+    ],
+    "end": "reset"
+  },
+  "expect": {
+    "connects": 1,
+    "shas": [],
+    "ignored": [
+      "not-message"
+    ],
+    "disconnects": [
+      {
+        "level": "warn",
+        "error": "TypeError: The socket connection was closed unexpectedly. For more information, pass `verbose: true` in the second argument to fetch()",
+        "retryInMs": 1000
+      }
+    ]
+  }
+}

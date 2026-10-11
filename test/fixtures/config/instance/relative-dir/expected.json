@@ -1,0 +1,8 @@
+{
+  "note": "A user keeps the config file next to the notes folder and gives dir relative to it.",
+  "kind": "ok",
+  "value": {
+    "remote": "git@github.com:tal/agent-notes.git",
+    "dir": "$CASE/agent-notes"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "note": "A reverse proxy or a catch-all health route answers the subscription with 200 and an empty body, then closes.",
+  "source": "synthesized: a bare 200 with Content-Length: 0",
+  "response": {
+    "status": 200,
+    "headers": {},
+    "chunks": [],
+    "end": "close"
+  },
+  "expect": {
+    "connects": 0,
+    "shas": [],
+    "ignored": [],
+    "disconnects": [
+      {
+        "level": "warn",
+        "error": "not an event stream (no content type): check that ntfyUrl names a topic",
+        "retryInMs": 1000
+      },
+      {
+        "level": "warn",
+        "error": "not an event stream (no content type): check that ntfyUrl names a topic",
+        "retryInMs": 2000
+      }
+    ]
+  }
+}

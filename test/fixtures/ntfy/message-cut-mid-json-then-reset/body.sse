@@ -1,0 +1,4 @@
+event: open
+data: {"id":"pQ3sV8nL2kTx","time":1791561000,"event":"open","topic":"notes-sync"}
+
+data: {"id":"Zt5rB1mC9wQe","time":1791561042,"expires":1791604242,"event":"message","topic":"notes-sync","message":"4c1d9e7a2b8f3c6d0e5a9b1f7c2d8e4a6b0c3f9d"

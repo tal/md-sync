@@ -1,0 +1,5 @@
+{
+  "ignore": ["drafts/", "*.tmp", ".obsidian/workspace.json"],
+  "idleMs": 120000,
+  "ntfyUrl": "https://ntfy.sh/acme-agent-notes-9b3f71c2"
+}

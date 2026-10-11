@@ -1,0 +1,7 @@
+{
+  "note": "A user wants a monthly catch-up and writes 30 days in ms, past the 2^31-1 timer limit.",
+  "kind": "invalid",
+  "errors": [
+    "invalid config key \"fallbackMs\" in $CASE/config.json: Too big: expected number to be <=2147483647"
+  ]
+}

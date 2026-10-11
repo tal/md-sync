@@ -1,0 +1,9 @@
+{
+  "note": "A team keeps notes on a namespaced branch such as notes/main next to its code branches.",
+  "kind": "ok",
+  "value": {
+    "branch": "notes/main",
+    "remote": "git@github.com:acme/handbook.git",
+    "dir": "$HOME/handbook"
+  }
+}

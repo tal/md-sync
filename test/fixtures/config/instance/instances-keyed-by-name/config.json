@@ -1,0 +1,10 @@
+{
+  "notes": {
+    "remote": "git@github.com:tal/agent-notes.git",
+    "dir": "~/agent-notes"
+  },
+  "work": {
+    "remote": "git@github.com:tal/work-notes.git",
+    "dir": "~/work-notes"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "note": "A self-hosted ntfy with auth enabled (auth-default-access: deny-all) and no token in ntfyUrl.",
+  "source": "synthesized: ntfy's errHTTPUnauthorized JSON body (code 40101), shaped like the captured 400/404 bodies",
+  "gap": "401 is retried forever on the outage backoff (1 s doubling to 5 min) at warn level, with only `HTTP 401` as the error and no hint to add a token (`?auth=`).",
+  "response": {
+    "status": 401,
+    "headers": {
+      "content-type": "application/json",
+      "access-control-allow-origin": "*"
+    },
+    "bodyFile": "body.json",
+    "end": "close"
+  },
+  "expect": {
+    "connects": 0,
+    "shas": [],
+    "ignored": [],
+    "disconnects": [
+      {
+        "level": "warn",
+        "error": "HTTP 401",
+        "retryInMs": 1000
+      },
+      {
+        "level": "warn",
+        "error": "HTTP 401",
+        "retryInMs": 2000
+      },
+      {
+        "level": "warn",
+        "error": "HTTP 401",
+        "retryInMs": 4000
+      }
+    ]
+  }
+}

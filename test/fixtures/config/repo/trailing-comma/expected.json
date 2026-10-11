@@ -1,0 +1,8 @@
+{
+  "note": "A teammate removes the last ignore entry and leaves a trailing comma behind.",
+  "kind": "invalid",
+  "errors": [
+    "invalid config file .config/mdsync.json: invalid JSON: SyntaxError: JSON Parse error: Unexpected comma at the end of array expression"
+  ],
+  "warnings": []
+}

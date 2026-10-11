@@ -1,0 +1,5 @@
+{
+  "note": "A systemd unit passes every setting as a flag, so the config file is just {}.",
+  "kind": "ok",
+  "value": {}
+}

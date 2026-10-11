@@ -1,0 +1,8 @@
+{
+  "note": "A user picks ntfy's WebSocket endpoint from its docs instead of the HTTP topic URL.",
+  "gap": "The URL is well-formed and only its scheme is wrong, but the message says \"Invalid URL\" instead of naming the allowed http/https schemes.",
+  "kind": "invalid",
+  "errors": [
+    "invalid config key \"ntfyUrl\" in $CASE/config.json: Invalid URL"
+  ]
+}

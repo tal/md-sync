@@ -1,0 +1,8 @@
+{
+  "note": "A user commits an empty .config/mdsync.json made with touch.",
+  "kind": "invalid",
+  "errors": [
+    "invalid config file .config/mdsync.json: invalid JSON: SyntaxError: JSON Parse error: Unexpected EOF"
+  ],
+  "warnings": []
+}

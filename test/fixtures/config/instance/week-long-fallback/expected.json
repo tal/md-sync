@@ -1,0 +1,10 @@
+{
+  "note": "A user who trusts ntfy sets the catch-up timer to once a week.",
+  "kind": "ok",
+  "value": {
+    "ntfyUrl": "https://ntfy.sh/agent-notes-4f9c2e7b1d8a",
+    "fallbackMs": 604800000,
+    "remote": "git@github.com:tal/agent-notes.git",
+    "dir": "$HOME/agent-notes"
+  }
+}

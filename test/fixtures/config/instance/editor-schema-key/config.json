@@ -1,0 +1,5 @@
+{
+  "$schema": "https://json.schemastore.org/mdsync.json",
+  "remote": "git@github.com:tal/agent-notes.git",
+  "dir": "~/agent-notes"
+}

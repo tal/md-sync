@@ -1,0 +1,14 @@
+{
+  "note": "A team commits shared ignores, a shorter idle timer and the team ntfy topic so every device uses them.",
+  "kind": "ok",
+  "value": {
+    "ntfyUrl": "https://ntfy.sh/acme-agent-notes-9b3f71c2",
+    "idleMs": 120000,
+    "ignore": [
+      "drafts/",
+      "*.tmp",
+      ".obsidian/workspace.json"
+    ]
+  },
+  "warnings": []
+}

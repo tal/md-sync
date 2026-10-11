@@ -1,0 +1,7 @@
+{
+  "note": "A user deletes the last list entry (or copies from a JS file) and leaves trailing commas.",
+  "kind": "invalid",
+  "errors": [
+    "invalid config file $CASE/config.json: invalid JSON: SyntaxError: JSON Parse error: Unexpected comma at the end of array expression"
+  ]
+}

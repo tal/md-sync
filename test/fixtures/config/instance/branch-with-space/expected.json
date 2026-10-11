@@ -1,0 +1,7 @@
+{
+  "note": "A user names the branch like a folder, with a space in it.",
+  "kind": "invalid",
+  "errors": [
+    "invalid config key \"branch\" in $CASE/config.json: not a valid git branch name"
+  ]
+}

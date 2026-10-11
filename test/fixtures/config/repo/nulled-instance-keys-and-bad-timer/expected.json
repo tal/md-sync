@@ -1,0 +1,17 @@
+{
+  "note": "A user nulls out the per-device keys of a copied instance file, and the shared idleMs is a duration string.",
+  "kind": "invalid",
+  "errors": [
+    "invalid config key \"idleMs\" in .config/mdsync.json: Invalid input: expected number, received string"
+  ],
+  "warnings": [
+    {
+      "key": "remote",
+      "reason": "instance-only"
+    },
+    {
+      "key": "dir",
+      "reason": "instance-only"
+    }
+  ]
+}

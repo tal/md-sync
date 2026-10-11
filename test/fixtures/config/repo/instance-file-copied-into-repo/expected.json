@@ -1,0 +1,24 @@
+{
+  "note": "A user commits a copy of their instance file as the repo config, per-device keys and all.",
+  "kind": "ok",
+  "value": {
+    "ntfyUrl": "https://ntfy.sh/agent-notes-4f9c2e7b1d8a",
+    "ignore": [
+      "drafts/"
+    ]
+  },
+  "warnings": [
+    {
+      "key": "remote",
+      "reason": "instance-only"
+    },
+    {
+      "key": "dir",
+      "reason": "instance-only"
+    },
+    {
+      "key": "authorName",
+      "reason": "instance-only"
+    }
+  ]
+}

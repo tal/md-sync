@@ -1,0 +1,38 @@
+{
+  "note": "Emoji in titles and messages arrive with TCP segment boundaries inside their UTF-8 bytes (1, 2 and 3 bytes into a sequence).",
+  "source": "synthesized: ntfy message events (Go's JSON encoder writes non-ASCII as raw UTF-8), split inside 📝, 🚀, — and ✅",
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "text/event-stream; charset=utf-8",
+      "access-control-allow-origin": "*"
+    },
+    "bodyFile": "body.sse",
+    "splitAt": [
+      95,
+      223,
+      249,
+      254,
+      286,
+      401
+    ],
+    "end": "close"
+  },
+  "expect": {
+    "connects": 1,
+    "shas": [
+      "3f9c2e1a7b6d5c4e3f2a1b0c9d8e7f6a5b4c3d2e"
+    ],
+    "ignored": [
+      "not-message",
+      "not-sha"
+    ],
+    "disconnects": [
+      {
+        "level": "warn",
+        "error": "stream ended",
+        "retryInMs": 1000
+      }
+    ]
+  }
+}

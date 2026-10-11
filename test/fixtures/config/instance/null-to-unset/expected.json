@@ -1,0 +1,8 @@
+{
+  "note": "A user sets ntfyUrl to null to turn ntfy off, as many JSON configs allow.",
+  "gap": "null is rejected, and there is no other way for an instance to unset a key the repo file sets (e.g. turn a team ntfyUrl off on one device).",
+  "kind": "invalid",
+  "errors": [
+    "invalid config key \"ntfyUrl\" in $CASE/config.json: Invalid input: expected string, received null"
+  ]
+}

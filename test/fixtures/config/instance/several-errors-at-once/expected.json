@@ -1,0 +1,11 @@
+{
+  "note": "A first config written from memory gets several things wrong at once, and every bad key must be named.",
+  "kind": "invalid",
+  "errors": [
+    "invalid config key \"branch\" in $CASE/config.json: not a valid git branch name",
+    "invalid config key \"idleMs\" in $CASE/config.json: Invalid input: expected number, received string",
+    "invalid config key \"ignore.1\" in $CASE/config.json: negated patterns are not supported",
+    "invalid config key \"remote\" in $CASE/config.json: Too small: expected string to have >=1 characters",
+    "invalid config key \"ntfy_url\" in $CASE/config.json: unknown key"
+  ]
+}

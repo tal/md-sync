@@ -1,0 +1,20 @@
+{
+  "note": "A server or container setup spells out every key, with an HTTPS remote for GIT_TOKEN auth.",
+  "kind": "ok",
+  "value": {
+    "branch": "main",
+    "ntfyUrl": "https://ntfy.sh/agent-notes-4f9c2e7b1d8a",
+    "idleMs": 120000,
+    "fallbackMs": 3600000,
+    "maxWaitMs": 1800000,
+    "ignore": [
+      "drafts/",
+      "*.tmp",
+      ".obsidian/workspace.json"
+    ],
+    "remote": "https://github.com/tal/agent-notes.git",
+    "dir": "/srv/mdsync/agent-notes",
+    "authorName": "notes-server",
+    "authorEmail": "notes-server@example.com"
+  }
+}

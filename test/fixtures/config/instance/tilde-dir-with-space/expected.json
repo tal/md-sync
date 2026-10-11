@@ -1,0 +1,8 @@
+{
+  "note": "A macOS user points dir at a ~/Documents folder whose name has a space in it.",
+  "kind": "ok",
+  "value": {
+    "remote": "git@github.com:tal/agent-notes.git",
+    "dir": "$HOME/Documents/Agent Notes"
+  }
+}

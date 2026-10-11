@@ -1,0 +1,7 @@
+{
+  "note": "touch config.json, or an editor that crashed before saving, leaves a zero-byte file.",
+  "kind": "invalid",
+  "errors": [
+    "invalid config file $CASE/config.json: invalid JSON: SyntaxError: JSON Parse error: Unexpected EOF"
+  ]
+}

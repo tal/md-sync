@@ -1,0 +1,25 @@
+{
+  "note": "A self-hosted ntfy behind nginx while the ntfy process is down: nginx answers with its built-in 502 page.",
+  "source": "synthesized: nginx's built-in 502 page (ngx_http_special_response.c, CRLF line endings, server_tokens off)",
+  "response": {
+    "status": 502,
+    "headers": {
+      "server": "nginx",
+      "content-type": "text/html"
+    },
+    "bodyFile": "body.html",
+    "end": "close"
+  },
+  "expect": {
+    "connects": 0,
+    "shas": [],
+    "ignored": [],
+    "disconnects": [
+      {
+        "level": "warn",
+        "error": "HTTP 502",
+        "retryInMs": 1000
+      }
+    ]
+  }
+}

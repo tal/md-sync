@@ -1,0 +1,7 @@
+{
+  "note": "Text pasted from Apple Notes or a chat app arrives with curly smart quotes.",
+  "kind": "invalid",
+  "errors": [
+    "invalid config file $CASE/config.json: invalid JSON: SyntaxError: JSON Parse error: Unrecognized token '“'"
+  ]
+}

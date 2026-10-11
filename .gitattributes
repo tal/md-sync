@@ -1,0 +1,2 @@
+# Fixtures are byte-exact recordings (BOMs, CRLF line endings, split UTF-8): never normalize them on checkout.
+test/fixtures/** -text

@@ -1,0 +1,33 @@
+{
+  "note": "ntfyUrl carries a query ntfy rejects (a copied `?since=` link), so every subscription gets a 400 with ntfy's JSON error body.",
+  "source": "captured: ntfy.sh 2026-10-09 (GET /<topic>/sse?since=garbage)",
+  "gap": "A 400 that no retry can fix is retried forever on the outage backoff at warn level, with only `HTTP 400` as the error.",
+  "url": "/{topic}?since=garbage",
+  "response": {
+    "status": 400,
+    "headers": {
+      "server": "nginx",
+      "content-type": "application/json",
+      "access-control-allow-origin": "*"
+    },
+    "bodyFile": "body.json",
+    "end": "close"
+  },
+  "expect": {
+    "connects": 0,
+    "shas": [],
+    "ignored": [],
+    "disconnects": [
+      {
+        "level": "warn",
+        "error": "HTTP 400",
+        "retryInMs": 1000
+      },
+      {
+        "level": "warn",
+        "error": "HTTP 400",
+        "retryInMs": 2000
+      }
+    ]
+  }
+}
