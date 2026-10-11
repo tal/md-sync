@@ -365,6 +365,7 @@ bun test                 # fast unit checks (default root: test/unit)
 bun run test:integration # real Git, processes, sockets and filesystem watching
 bun run test:acceptance  # end-to-end daemon tests; local bare repos, no network
 bun run test:all         # all three suites
+bun run test:live        # opt-in: creates a private GitHub repo and three local checkouts
 bun run typecheck        # tsc --noEmit
 bun run build            # bun build --compile src/cli.ts --outfile dist/md-sync
 ```
@@ -373,5 +374,13 @@ bun run build            # bun build --compile src/cli.ts --outfile dist/md-sync
 - **Binary smoke test:** `MDSYNC_BIN=$PWD/dist/md-sync bun test ./test/smoke.test.ts`.
 - **Container smoke test:** `docker build -t md-sync:dev . && bash test/container-smoke.sh md-sync:dev`.
 - CI (`.github/workflows/ci.yml`) explicitly runs all three test suites on Linux and macOS, the binary smoke test on both, and the container smoke test. Tagging `v*` builds the release binaries (`.github/workflows/release.yml`).
+
+**Live GitHub check:** `bun run test:live` needs an authenticated `gh` CLI and working GitHub git authentication. Each invocation creates a new private `mdsync-live-<timestamp>-<random>` repo under your authenticated account and three checkouts (`alpha`, `beta`, `gamma`) under `~/mdsync-live/<timestamp>-<random>/`. It checks writes from each checkout, an unflushed backup-timer write, deletion and divergent edits that preserve both versions. It verifies all three heads match GitHub and that commit history contains only synthetic user content. Remote delivery uses a 10-second catch-up timer; this does not test GitHub Actions or ntfy. Config, state and logs stay outside the synced folders.
+
+Use `bun run test:live --ntfy` to also test GitHub Actions → ntfy → daemon pulls. This mode creates a random topic on ntfy.sh, sets the repo's `MDSYNC_NTFY_URL` secret, commits the generated notification workflow and configures all three subscribers. It requires GitHub Actions to be enabled and permission to set repo secrets and push workflow files. The topic stays in the external instance configs and GitHub secret. The workflow discards ntfy's response body to keep the topic out of Actions logs.
+
+In ntfy mode the catch-up interval is one hour, and each wait allows up to five minutes for Actions and notification delivery. For each writer, both peers must log the matching pushed SHA and a successful ntfy-triggered pull that imports it; startup, reconnect and fallback pulls cannot satisfy that check. The corresponding notification workflow must also finish successfully. The history check allows the notification workflow alongside the synthetic user content.
+
+The command stops its daemons on exit and keeps the repo, checkouts, logs and a `README.txt` with restart/flush instructions for manual testing. A successful check also writes `result.json`, including the delivery mode. Delete the GitHub repo and local workspace yourself when finished. Live checks are excluded from `bun test`, `test:all` and CI; they run only with the explicit commands above.
 
 To use a separate SSH private key for one repo, add `"sshKey": "~/.ssh/notes_ed25519"` to its instance config, or pass `--ssh-key ~/.ssh/notes_ed25519`. Use an SSH remote URL. Relative key paths resolve from the instance config directory (CLI paths from the current directory). Changes apply on restart or SIGHUP. md-sync uses noninteractive SSH with `IdentitiesOnly=yes` and disables connection reuse for this identity; encrypted keys must already be unlocked in your SSH agent. Without `sshKey`, existing git authentication is used. Keep the private key outside the synced folder; config contains only its path.

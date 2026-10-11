@@ -19,6 +19,7 @@
     "build": "bun build --compile src/cli.ts --outfile dist/md-sync",
     "test:integration": "bun test ./test/integration",
     "test:acceptance": "bun test ./test/acceptance",
+    "test:live": "bun run ./test/live/github.ts",
     "test:all": "bun test ./test/unit ./test/integration ./test/acceptance"
   },
   "dependencies": {
