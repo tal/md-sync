@@ -5,7 +5,7 @@ import pkg from '../package.json' with { type: 'json' };
 import { expBackoffMs, NETWORK_BACKOFF, sleep } from './backoff';
 import { ensureRepo } from './bootstrap';
 import {
-  changedKeys, type DirectLayers, formatIssue, type LoadedRepoConfig, loadInstanceFile, loadRepoConfig,
+  type AutoCommit, changedKeys, type DirectLayers, formatIssue, type LoadedRepoConfig, loadInstanceFile, loadRepoConfig,
   type ReadyConfig, readRepoConfigBlob, type RepoInput, type ResolvedConfig,
   resolveConfig,
 } from './config';
@@ -528,7 +528,7 @@ class Daemon {
   }
 
   #onBackupTimer(timer: BackupTimerName): void {
-    if (this.#phase !== 'running') return;
+    if (this.#phase !== 'running' || this.#autoCommit() === 'off') return;
     this.#log.info('backup timer fired', { timer });
     this.#queue.request({ kind: 'commit', source: 'backup', timer });
   }
@@ -715,6 +715,11 @@ class Daemon {
     if (rels.some(isGitignore)) this.#watcher?.setIgnoredDirs(await ignoredDirs(ctx));
     const entries = await pendingChanges(ctx, rels);   // drops gitignored files, our own git writes and no-op saves
     if (entries.length === 0 || this.#phase !== 'running') return;
+    // autoCommit off: a change is only noted; flush or sync-once commits it
+    if (this.#autoCommit() === 'off') {
+      this.#log.debug('local change', { paths: rels.length, dirty: entries.length });
+      return;
+    }
     const before = timers.status();
     timers.noteChange();
     this.#log.debug('local change', { paths: rels.length, dirty: entries.length });
@@ -736,7 +741,10 @@ class Daemon {
     const ctx = this.#ctx;
     const timers = this.#timers;
     if (this.#phase !== 'running' || ctx === undefined || timers === undefined) return;
+    // autoCommit off: nothing arms the backup timers (a reload to 'off' cleared any that were armed)
+    if (this.#autoCommit() === 'off') return;
     const entries = await pendingChanges(ctx);
+    if (this.#autoCommit() === 'off') return;   // a reload during the status read
     let next: 'clean' | 'dirty-after-full-commit' | 'dirty' | 'leave' = 'dirty';
     if (entries.length === 0) {
       next = 'clean';
@@ -851,6 +859,8 @@ class Daemon {
     this.#config = next;
     this.#ctx = ctx;
     if (has('idleMs') || has('maxWaitMs')) this.#timers?.setDurations(next.idleMs, next.maxWaitMs);
+    // 'off' cancels armed backup timers; back to 'timers', a status check arms them for changes already pending
+    if (has('autoCommit') && next.autoCommit === 'off') this.#timers?.clear();
     if (has('fallbackMs')) this.#fallback?.setMs(next.fallbackMs);
     if (has('ntfyUrl')) {
       const old = this.#ntfy;
@@ -859,6 +869,7 @@ class Daemon {
       this.#startNtfy();
     }
     if (has('ignore')) await this.#applyIgnore(ctx);
+    else if (has('autoCommit') && next.autoCommit === 'timers') await this.#statusCheck({ kind: 'poll' });
     this.#log.info('config reloaded', { trigger: pending.trigger, changed });
   }
 
@@ -897,7 +908,16 @@ class Daemon {
         const [changes, ahead, head] = await Promise.all([pendingChanges(ctx), aheadCount(ctx), headSha(ctx.git)]);
         const dirty = changes.length > 0;
         const born = head !== 'unborn';
-        if (dirty || (typeof ahead === 'number' && ahead > 0) || (ahead === 'no-remote-branch' && born)) {
+        const unpushed = (typeof ahead === 'number' && ahead > 0) || (ahead === 'no-remote-branch' && born);
+        if (this.#autoCommit() === 'off') {
+          // Only flush and sync-once commit: pending edits stay in the worktree, and the shutdown-mode pull-only run
+          // (preflight and one push attempt, no fetch) pushes commits that are already made.
+          if (dirty) this.#log.info('changes left uncommitted', { changes: changes.length, reason: 'auto-commit-off' });
+          if (unpushed) {
+            this.#queue.request({ kind: 'pull-only', reason: 'shutdown' });
+            await this.#queue.whenIdle();
+          }
+        } else if (dirty || unpushed) {
           this.#queue.request({ kind: 'commit', source: 'shutdown' });
           await this.#queue.whenIdle();
         }
@@ -970,6 +990,10 @@ class Daemon {
   }
 
   // ------------------------------------------------------------------------------------------------------------
+
+  #autoCommit(): AutoCommit {
+    return this.#config?.autoCommit ?? 'timers';
+  }
 
   #need(): { config: ReadyConfig; ctx: RunContext } {
     if (this.#config === undefined || this.#ctx === undefined) throw new Error('daemon used before its context was built');

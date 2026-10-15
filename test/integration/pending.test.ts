@@ -31,7 +31,7 @@ afterAll(async () => {
 async function setup(o: { ignore?: string[]; from?: Remote } = {}): Promise<{ c: Clone; ctx: RunContext }> {
   const c = await cloneRemote(t, o.from ?? remote, `clone-${++n}`);
   const config: ReadyConfig = { dir: c.dir, remote: (o.from ?? remote).url, branch: 'main', idleMs: 60_000,
-    fallbackMs: 3_600_000, maxWaitMs: 120_000, ignore: o.ignore ?? [], authorName: 'mdsync-test',
+    fallbackMs: 3_600_000, maxWaitMs: 120_000, autoCommit: 'timers', ignore: o.ignore ?? [], authorName: 'mdsync-test',
     authorEmail: 'test@test.invalid' };
   const paths = statePathsFor(c.dir, t.env);
   ensureStateDir(paths);

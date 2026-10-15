@@ -35,7 +35,7 @@ afterAll(async () => {
 
 function input(realDir: string, o: { remote?: string; branch?: string } = {}) {
   const config: ReadyConfig = { dir: realDir, branch: o.branch ?? 'main', idleMs: 60_000, fallbackMs: 3_600_000,
-    maxWaitMs: 120_000, ignore: [], authorName: 'mdsync-test', authorEmail: 'test@test.invalid',
+    maxWaitMs: 120_000, autoCommit: 'timers', ignore: [], authorName: 'mdsync-test', authorEmail: 'test@test.invalid',
     ...(o.remote !== undefined ? { remote: o.remote } : {}) };
   const logs: LogLine[] = [];
   const log = createLogger({ level: 'debug', sink: 'stdout', write: (l) => logs.push(JSON.parse(l) as LogLine) });
@@ -271,7 +271,7 @@ describe('createRunContext / loadEffectiveConfig', () => {
     const { c, r, log, paths } = await repoWithConfig('none');
     await git(c.dir, ['config', 'core.ignorecase', 'false']);
     const cfg: ReadyConfig = { dir: c.dir, remote: r.url, branch: 'main', idleMs: 60_000, fallbackMs: 3_600_000,
-      maxWaitMs: 120_000, ignore: [], authorName: 'a', authorEmail: 'a@a' };
+      maxWaitMs: 120_000, autoCommit: 'timers', ignore: [], authorName: 'a', authorEmail: 'a@a' };
     expect((await createRunContext({ config: cfg, realDir: c.dir, paths, log })).ignoreCase).toBe('case-sensitive');
     await git(c.dir, ['config', 'core.ignorecase', 'true']);
     expect((await createRunContext({ config: cfg, realDir: c.dir, paths, log })).ignoreCase).toBe('case-insensitive');

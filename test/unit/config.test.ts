@@ -38,6 +38,7 @@ const sample = {
   idleMs: [1_001, 1_002, 1_003, 300_000],
   fallbackMs: [2_001, 2_002, 2_003, 3_600_000],
   maxWaitMs: [3_001, 3_002, 3_003, 1_800_000],
+  autoCommit: ['off', 'timers', 'off', 'timers'],   // two values: each layer still differs from the one below it
   ignore: [['cli/*'], ['inst/*'], ['repo/*'], []],
   remote: ['/r/cli.git', '/r/inst.git', undefined, undefined],
   dir: ['/d/cli', '/d/inst', undefined, undefined],
@@ -50,7 +51,7 @@ const keys = Object.keys(sample) as Key[];
 
 describe('key sets and schemas', () => {
   test('shared and instance-only keys partition the config keys', () => {
-    expect([...SHARED_KEYS].sort()).toEqual(['branch', 'fallbackMs', 'idleMs', 'ignore', 'maxWaitMs', 'ntfyUrl']);
+    expect([...SHARED_KEYS].sort()).toEqual(['autoCommit', 'branch', 'fallbackMs', 'idleMs', 'ignore', 'maxWaitMs', 'ntfyUrl']);
     expect([...INSTANCE_ONLY_KEYS].sort()).toEqual(['authorEmail', 'authorName', 'dir', 'remote', 'sshKey']);
     expect(Object.keys(CONFIG_FLAGS).sort()).toEqual([...SHARED_KEYS, ...INSTANCE_ONLY_KEYS].sort());
   });
@@ -72,6 +73,17 @@ describe('key sets and schemas', () => {
     for (const k of ['fallbackMs', 'maxWaitMs']) {
       expect(InstanceSchema.safeParse({ [k]: 999 }).success).toBe(false);
       expect(InstanceSchema.safeParse({ [k]: 2 ** 31 }).success).toBe(false);
+    }
+  });
+
+  test("autoCommit is 'timers' or 'off', in the instance and the repo schema", () => {
+    for (const v of ['timers', 'off']) {
+      expect(InstanceSchema.safeParse({ autoCommit: v }).success).toBe(true);
+      expect(RepoSchema.safeParse({ autoCommit: v }).success).toBe(true);
+    }
+    for (const v of ['on', 'OFF', '', false, true, 0, null]) {
+      expect(InstanceSchema.safeParse({ autoCommit: v }).success).toBe(false);
+      expect(RepoSchema.safeParse({ autoCommit: v }).success).toBe(false);
     }
   });
 
@@ -130,7 +142,7 @@ describe('resolveConfig precedence', () => {
   test('defaults', () => {
     const { config } = resolveConfig(layers(), 'box');
     expect(config).toEqual({
-      idleMs: 300_000, fallbackMs: 3_600_000, maxWaitMs: 1_800_000, ignore: [],
+      idleMs: 300_000, fallbackMs: 3_600_000, maxWaitMs: 1_800_000, autoCommit: 'timers', ignore: [],
       authorName: 'mdsync@box', authorEmail: 'mdsync@box.local',
     });
     expect('ntfyUrl' in config).toBe(false);
@@ -225,6 +237,14 @@ describe('loadInstanceFile', () => {
     for (const i of r.issues) expect(i).toMatchObject({ layer: 'instance', file: p });
   });
 
+  test('an invalid autoCommit names the key (a start refuses)', () => {
+    const p = writeConfig({ autoCommit: 'never' });
+    const r = loadInstanceFile(p);
+    expect(r.kind === 'invalid' && r.issues.map((i) => [i.key, i.layer, i.file])).toEqual([['autoCommit', 'instance', p]]);
+    if (r.kind === 'invalid') expect(formatIssue(r.issues[0]!)).toStartWith(`invalid config key "autoCommit" in ${p}: `);
+    expect(loadInstanceFile(writeConfig({ autoCommit: 'off' }))).toEqual({ kind: 'ok', value: { autoCommit: 'off' } });
+  });
+
   test('timer bounds through the file', () => {
     const low = loadInstanceFile(writeConfig({ idleMs: 999 }));
     expect(low.kind === 'invalid' && low.issues.map((i) => i.key)).toEqual(['idleMs']);
@@ -271,6 +291,14 @@ describe('validateCliLayer', () => {
     expect(byKey.fallbackMs!.file).toBeUndefined();
   });
 
+  test('--auto-commit takes timers or off; anything else names the key and the flag', () => {
+    expect(validateCliLayer({ 'auto-commit': 'off' }, cwd)).toEqual({ kind: 'ok', value: { autoCommit: 'off' } });
+    expect(validateCliLayer({ 'auto-commit': 'timers' }, cwd)).toEqual({ kind: 'ok', value: { autoCommit: 'timers' } });
+    const r = validateCliLayer({ 'auto-commit': 'no' }, cwd);
+    expect(r.kind === 'invalid' && r.issues).toMatchObject([{ layer: 'cli', key: 'autoCommit', flag: '--auto-commit' }]);
+    expect(CONFIG_FLAGS.autoCommit).toBe('--auto-commit');
+  });
+
   test('2^31 is rejected from the CLI as well', () => {
     const r = validateCliLayer({ 'max-wait-ms': String(2 ** 31) }, cwd);
     expect(r.kind === 'invalid' && r.issues[0]?.key).toBe('maxWaitMs');
@@ -314,6 +342,14 @@ describe('parseRepoConfig', () => {
   test('an instance-only key with a bad value is still only a warning', () => {
     const { log } = capture();
     expect(parseRepoConfig('{"dir": 5}', log)).toEqual({ kind: 'ok', value: {} });
+  });
+
+  test('autoCommit is a shared key: kept from the repo file, an invalid value is invalid', () => {
+    const { log, events } = capture();
+    expect(parseRepoConfig('{"autoCommit": "off"}', log)).toEqual({ kind: 'ok', value: { autoCommit: 'off' } });
+    expect(events().filter((e) => e.msg === 'repo config key ignored')).toEqual([]);
+    const r = parseRepoConfig('{"autoCommit": "sometimes"}', log);
+    expect(r.kind === 'invalid' && r.issues.map((i) => [i.key, i.layer])).toEqual([['autoCommit', 'repo']]);
   });
 
   test('invalid values and bad JSON are invalid, naming the key and the repo file', () => {
@@ -372,6 +408,7 @@ describe('requireKeys / formatIssue / changedKeys', () => {
     expect(changedKeys(a, { ...a, ntfyUrl: 'https://n/t', idleMs: 5_000, dir: '/d' })).toEqual(['dir', 'ntfyUrl', 'idleMs']);
     expect(changedKeys({ ...a, remote: 'r' }, a)).toEqual(['remote']);
     expect(changedKeys(a, { ...a, authorEmail: 'z', branch: 'dev' })).toEqual(['branch', 'authorEmail']);
+    expect(changedKeys(a, { ...a, autoCommit: 'off', ignore: [] })).toEqual(['autoCommit', 'ignore']);
   });
 });
 

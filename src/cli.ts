@@ -32,6 +32,7 @@ const OPTIONS = {
   'idle-ms': { type: 'string' },
   'fallback-ms': { type: 'string' },
   'max-wait-ms': { type: 'string' },
+  'auto-commit': { type: 'string' },
   ignore: { type: 'string', multiple: true },
   message: { type: 'string', short: 'm' },
   wait: { type: 'boolean' },
@@ -72,6 +73,8 @@ Config flags (any command; they override the config file):
   --idle-ms <ms>            commit after this much quiet (default: 300000)
   --max-wait-ms <ms>        commit at the latest this long after the first change (default: 1800000)
   --fallback-ms <ms>        pull at least this often (default: 3600000)
+  --auto-commit <mode>      timers: backup timers commit unflushed changes; off: only flush and sync-once commit
+                            (default: timers)
   --ignore <glob>           ignore pattern, repeatable (replaces lower layers)
   --author-name <name>      commit author name
   --author-email <email>    commit author email

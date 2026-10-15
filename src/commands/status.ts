@@ -1,6 +1,7 @@
 // `status`: read-only report from the state file, the lock and git.
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import type { AutoCommit } from '../config';
 import { loadEffectiveConfig } from '../context';
 import { headSha, parseNul } from '../git';
 import { isoUtc } from '../host';
@@ -17,7 +18,9 @@ import { xdgStateHome } from '../paths';
 export type DaemonStatus = { state: 'running'; pid: number } | { state: 'stopped' } | { state: 'stale-lock'; pid: number };
 // notSynced: paths that are never staged (`unstageable` in pending.ts): local-only conflict copies and index paths that differ
 // only in case or Unicode normalization.
-type RepoStatus = { kind: 'repo'; head: string; unpushed: number | 'no-remote-branch'; pending: PendingEntry[]; notSynced: string[] }
+// autoCommit: the mode the folder's config resolves to (what the daemon runs with, unless a reload is still pending).
+type RepoStatus = { kind: 'repo'; head: string; unpushed: number | 'no-remote-branch'; pending: PendingEntry[]; notSynced: string[];
+  autoCommit: AutoCommit }
   | { kind: 'not-a-repo'; why: string };
 
 // A one-off run holding the lock is not a daemon: it reports 'stopped' (and says so in the text form).
@@ -41,7 +44,7 @@ async function repoStatus(t: Parameters<typeof loadEffectiveConfig>[0], c: Comma
     const { ctx } = await loadEffectiveConfig({ ...t, layers: d.layers, log: createLogger({ level: 'error', sink: 'stderr' }) });
     const [head, unpushed, pending] = await Promise.all([headSha(ctx.git), aheadCount(ctx), pendingChanges(ctx)]);
     const never = await unstageable(ctx, parseNul(await ctx.git.ok(['ls-files', '-z', '--others', '--exclude-standard'])));
-    return { kind: 'repo', head, unpushed, pending,
+    return { kind: 'repo', head, unpushed, pending, autoCommit: ctx.config.autoCommit,
       notSynced: [...never.localOnly, ...never.caseCollided, ...never.nested, ...await indexGitlinks(ctx)].sort() };
   } catch (e) {
     return { kind: 'not-a-repo', why: errorText(e) };
@@ -93,6 +96,7 @@ function renderText(dir: string, d: { status: DaemonStatus; oneOff: number | 'no
   }
   if (s !== 'none' && s.keptStashes.length > 0) out += line('kept stashes', `${s.keptStashes.length} (git -C ${dir} stash list)`);
   if (repo.kind === 'repo') {
+    out += line('auto commit', repo.autoCommit === 'off' ? 'off (only flush and sync-once commit)' : 'timers');
     out += line('pending', plural(repo.pending.length, 'change', 'changes'));
     for (const e of repo.pending) out += `  ${e.xy} ${e.path}\n`;
     if (repo.notSynced.length > 0) {
@@ -143,6 +147,7 @@ export async function statusCommand(c: CommandEnv): Promise<number> {
       unpushed: repo.kind === 'repo' ? repo.unpushed : 'unknown',
       pending: repo.kind === 'repo' ? repo.pending : 'unknown',
       notSynced: repo.kind === 'repo' ? repo.notSynced : 'unknown',
+      autoCommit: repo.kind === 'repo' ? repo.autoCommit : 'unknown',
     };
     stdoutText(`${JSON.stringify(json)}\n`);
     return 0;

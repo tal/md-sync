@@ -2,7 +2,7 @@
 
 `md-sync` keeps a local folder of Markdown files in two-way sync with a git remote. It is a small Bun/TypeScript daemon, one per synced folder. Syncing is driven by events rather than a fetch loop (local changes come from an FSEvents stream on macOS, and from a stat poll of the folder on Linux and in containers):
 
-- **Agents say when they're done.** `md-sync flush` (usually from an end-of-task hook) commits and pushes. Backup timers commit anything nobody flushed.
+- **Agents say when they're done.** `md-sync flush` (usually from an end-of-task hook) commits and pushes. Backup timers commit anything nobody flushed, unless you turn them off (`autoCommit: "off"`).
 - **Remote pushes arrive by ntfy.** A GitHub Action posts each pushed SHA to an ntfy topic, and every daemon pulls when it sees one it doesn't have. An hourly catch-up covers the rest.
 - **Conflicts never block.** Both versions are kept: the first-pushed one at the original path and the other as a conflict copy beside it.
 - **Nothing is written into the synced repo** except commits of user content. Lock, socket and state files live in `~/.local/state/mdsync/`.
@@ -106,7 +106,7 @@ md-sync install-service                   # or run it as a service: the unit rec
 | `md-sync run` | Run the daemon in the foreground. Services and containers call this. Needs `dir` and `remote`; with neither given, it syncs the checkout it starts in (see [Quick start](#quick-start)). |
 | `md-sync flush [-m <text>] [--wait] [<path>...]` | Commit now and push. See [Flushing](#flushing-from-agents). |
 | `md-sync sync-once` | Run a single commit run (stage, commit, fetch, rebase, push) and exit. For cron, debugging and CI. Needs `dir` and `remote`, with the same defaults as `run`. |
-| `md-sync status [--format text\|json]` | Show whether the daemon is running, the last sync and its result, unpushed commits, pending local changes and kept stashes. |
+| `md-sync status [--format text\|json]` | Show whether the daemon is running, the last sync and its result, unpushed commits, the auto-commit mode, pending local changes and kept stashes. |
 | `md-sync install-service [--print]` | Write and load a launchd agent (macOS) or a systemd user unit (Linux) that runs `md-sync run` with this config (started in a checkout with no `dir`, the unit records that folder and its origin). `--print` prints the unit instead. |
 | `md-sync uninstall-service` | Unload and remove that unit. A unit that isn't installed is not an error. |
 | `md-sync print-workflow` | Print the GitHub Action that posts pushes to ntfy. |
@@ -135,6 +135,7 @@ Settings come from files, and any of them can be overridden with a CLI flag. Pre
 | `idleMs` | `--idle-ms` | `300000` (5 min) | Either | Yes | Backup commit after this long with no local writes and no flush |
 | `fallbackMs` | `--fallback-ms` | `3600000` (1 h) | Either | Yes | Catch-up pull interval |
 | `maxWaitMs` | `--max-wait-ms` | `1800000` (30 min) | Either | Yes | Backup commit this long after the first uncommitted change, even if writes continue |
+| `autoCommit` | `--auto-commit` | `timers` | Either | Yes | `timers`: the backup timers commit what nobody flushed, and a stop commits what is pending. `off`: only `flush` and `sync-once` commit; pulls still run. See [Backup timers](#flushing-from-agents) |
 | `ignore` | `--ignore` (repeatable) | `[]` | Either | Yes | Extra globs to ignore, on top of `.git/` and `.gitignore` |
 | `authorName` | `--author-name` | `mdsync@<hostname>` | Instance file | Yes | Commit author name |
 | `sshKey` | `--ssh-key` | (unset) | Instance file | Yes | SSH private-key path for this repo |
@@ -160,7 +161,7 @@ At debug level, `git` records actual Git commands. Filesystem diagnostics use `w
 
 ## Flushing from agents
 
-A local file change never commits on its own. Commits happen when a writer says it's done, and backup timers make sure nothing stays uncommitted for long if that signal never comes.
+A local file change never commits on its own. Commits happen when a writer says it's done, and backup timers make sure nothing stays uncommitted for long if that signal never comes (unless `autoCommit` is `off`, below).
 
 ```sh
 md-sync flush --dir ~/agent-notes                               # commit everything pending, return once queued
@@ -196,6 +197,13 @@ Any agent framework with an end-of-task hook can do the same: run `md-sync flush
 **Watching on Linux and in containers** is a poll: every 2 s, md-sync lists every folder that is not gitignored and stats every file in it. A scan waits ten times its own CPU cost before the next one, so the poll takes at most about 10% of one core. A big tree is scanned less often instead: measured on macOS, 50k files cost about 10% of a core and ~170 MB of memory, 200k files about 9% and ~400 MB. Gitignored folders (`node_modules`, build output, caches) are skipped, including ones created while md-sync runs. A write is seen up to one interval late, so the idle wait is never shorter than two intervals.
 
 Backup commits get ` (auto)` at the end of the subject, so `git log --grep '(auto)'` shows where a writer forgot to flush. A path-limited flush doesn't reset the timers for other files.
+
+**Pull automatically, commit only by hand.** Set `"autoCommit": "off"` (or `--auto-commit off`) to keep the pulls but drop the backup commits:
+
+- Local changes arm no timer. Only `md-sync flush` and `md-sync sync-once` commit; edits nobody flushes stay uncommitted in the folder.
+- ntfy events and the `fallbackMs` catch-up still pull, carrying uncommitted edits through as usual. A conflict copy made by a pull is still committed and pushed.
+- On `SIGTERM`, pending edits stay uncommitted (logged `changes left uncommitted`); commits that already exist but aren't pushed yet are still pushed.
+- It applies on `SIGHUP` or a repo-file change: switching to `off` cancels armed timers, and switching back to `timers` arms them for changes already pending. `md-sync status` shows the mode (`auto commit:`, and `autoCommit` in `--format json`).
 
 **Commit messages** are the flush message, or `sync <hostname> <ISO time>` without one, followed by the list of changed files (the first 20).
 
@@ -242,7 +250,7 @@ md-sync uninstall-service --dir ~/agent-notes
 
 - **Credentials:** `GIT_TOKEN` is never written into a unit. Desktop services should use an SSH key or a git credential helper. If you set `XDG_CONFIG_HOME` or `XDG_STATE_HOME`, they're recorded in the unit, and `md-sync flush` looks there for the socket even when its own environment lacks them.
 - **Liveness:** if the daemon's event loop ever stops running (a native deadlock looks alive to the service manager and ignores `SIGTERM`), a watchdog thread logs `event loop stalled` and kills the process after 60 s, so the service manager restarts it.
-- **Shutdown:** on `SIGTERM`, md-sync finishes the current sync, commits and pushes anything pending, then exits, within 240 s. The units allow 300 s before a forced kill. A push that can't finish in time stays as a local commit, and the next start pushes it.
+- **Shutdown:** on `SIGTERM`, md-sync finishes the current sync, commits and pushes anything pending, then exits, within 240 s. With `autoCommit: "off"` it commits nothing: it pushes commits that already exist and leaves pending edits in the folder. The units allow 300 s before a forced kill. A push that can't finish in time stays as a local commit, and the next start pushes it.
 
 ## Container
 
@@ -317,12 +325,13 @@ daemon:      running (pid 4242)
 last sync:   2026-10-08T12:34:56Z  ok  (commit; in 1, out 2; 830 ms)
 head:        0123abcd4567
 unpushed:    0 commits
+auto commit: timers
 pending:     2 changes
    M notes/a.md
   ?? notes/b.md
 ```
 
-`--format json` prints the same as one JSON object; when the folder can't be read, its `repo` is `{"state": "unavailable", "why": …}` and `pending` and `unpushed` are `"unknown"`, never an empty list. `daemon:` shows `not running (stale lock, pid N)` if the machine rebooted under a running daemon. A `not synced:` section lists files that are never committed: local-only conflict copies (of gitignored files), paths that differ only in letter case on a case-insensitive disk (fix those by removing one spelling), and git repositories cloned or created inside the folder (their files never sync; move them out, or copy the files you want synced next to them).
+`--format json` prints the same as one JSON object; when the folder can't be read, its `repo` is `{"state": "unavailable", "why": …}` and `pending`, `unpushed` and `autoCommit` are `"unknown"`, never an empty list. `daemon:` shows `not running (stale lock, pid N)` if the machine rebooted under a running daemon. A `not synced:` section lists files that are never committed: local-only conflict copies (of gitignored files), paths that differ only in letter case on a case-insensitive disk (fix those by removing one spelling), and git repositories cloned or created inside the folder (their files never sync; move them out, or copy the files you want synced next to them).
 
 **Kept stashes.** To bring uncommitted edits across a pull, md-sync stashes them and replays them itself. If it can't verify that a replay landed on disk (for example, an agent wrote the same file at that moment), it keeps the stash instead of dropping it and logs `stash kept`. `md-sync status` lists these, for example `kept stashes: 1 (git -C /Users/tal/agent-notes stash list)`. md-sync never replays them again. To inspect one and recover anything missing from the working copy:
 

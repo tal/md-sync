@@ -7,7 +7,8 @@ export type CommitSource = 'flush' | 'backup' | 'sync-once' | 'shutdown';
 export type BackupTimerName = 'idle' | 'max-wait';
 export type PullReason = 'startup' | 'ntfy' | 'ntfy-connect' | 'ntfy-reconnect' | 'fallback' | 'wake' | 'retry'
   | 'network'                                          // the machine joined a network (NetworkWatcher)
-  | 'settle';                                          // the settle timer: preflight only, no fetch
+  | 'settle'                                           // the settle timer: preflight only, no fetch
+  | 'shutdown';                                        // autoCommit off: push what is already committed, commit nothing
 export type TriggerLabel = 'flush' | BackupTimerName | 'sync-once' | 'shutdown' | PullReason;
 export type WaitMode = 'wait' | 'no-wait';
 export type SyncOutcome = 'ok' | 'conflict-resolved' | 'network-error' | 'busy' | 'failed' | 'data-guard-stop';

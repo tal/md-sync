@@ -83,6 +83,7 @@ export const LOG_MSGS = [
   'flush received',
   'shutdown requested',
   'shutdown complete',
+  'changes left uncommitted',
   'folder moved',
   'forced exit',
   'event loop stalled',

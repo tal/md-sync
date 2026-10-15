@@ -39,6 +39,7 @@ const OVERRIDE_FLAGS: readonly (readonly [keyof InstanceInput, string])[] = [
   ['authorEmail', '--author-email'],
   ['sshKey', '--ssh-key'],
   ['maxWaitMs', '--max-wait-ms'],
+  ['autoCommit', '--auto-commit'],
 ];
 
 // parseArgs (strict) rejects `--flag -value` as ambiguous; `--flag=-value` is the unambiguous spelling.

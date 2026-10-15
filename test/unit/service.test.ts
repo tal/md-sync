@@ -93,7 +93,7 @@ describe('serviceArgv', () => {
 
   test('every override, in table order, then the log level', () => {
     const argv = serviceArgv(exec, '/c/notes.json', {
-      maxWaitMs: 900_000, authorEmail: 'me@host.local', authorName: 'Me', ignore: ['*.tmp', 'drafts/'],
+      autoCommit: 'off', maxWaitMs: 900_000, authorEmail: 'me@host.local', authorName: 'Me', ignore: ['*.tmp', 'drafts/'],
       fallbackMs: 7_200_000, idleMs: 120_000, ntfyUrl: 'https://ntfy.sh/topic', branch: 'notes',
       dir: '/data/notes', remote: 'git@github.com:me/notes.git',
     }, 'debug');
@@ -109,6 +109,7 @@ describe('serviceArgv', () => {
       '--author-name', 'Me',
       '--author-email', 'me@host.local',
       '--max-wait-ms', '900000',
+      '--auto-commit', 'off',
       '--log-level', 'debug',
     ]);
   });

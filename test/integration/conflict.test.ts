@@ -53,7 +53,7 @@ async function fixture(o: { seed?: Record<string, string>; ignore?: string[] } =
   const remote = await createRemote(t, { files: o.seed ?? SEED });
   const c = await cloneRemote(t, remote, `clone-${++n}`);
   const config: ReadyConfig = { dir: c.dir, remote: remote.url, branch: 'main', idleMs: 60_000, fallbackMs: 3_600_000,
-    maxWaitMs: 120_000, ignore: o.ignore ?? [], authorName: 'mdsync-test', authorEmail: 'test@test.invalid' };
+    maxWaitMs: 120_000, autoCommit: 'timers', ignore: o.ignore ?? [], authorName: 'mdsync-test', authorEmail: 'test@test.invalid' };
   const paths = statePathsFor(c.dir, t.env);
   ensureStateDir(paths);
   const logs: LogLine[] = [];

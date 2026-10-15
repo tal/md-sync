@@ -8,7 +8,11 @@ import { errorText, type Logger } from './log';
 import { resolveDirInput } from './paths';
 import { MAX_TIMER_MS } from './types';
 
-export const SHARED_KEYS = ['branch', 'ntfyUrl', 'idleMs', 'fallbackMs', 'ignore', 'maxWaitMs'] as const;
+export const SHARED_KEYS = ['branch', 'ntfyUrl', 'idleMs', 'fallbackMs', 'ignore', 'maxWaitMs', 'autoCommit'] as const;
+// 'timers': local changes arm the idleMs / maxWaitMs backup commits (and a stop commits what is pending). 'off': only
+// `flush` and `sync-once` commit; pulls still run and carry uncommitted edits through.
+export const AUTO_COMMIT_MODES = ['timers', 'off'] as const;
+export type AutoCommit = (typeof AUTO_COMMIT_MODES)[number];
 export const INSTANCE_ONLY_KEYS = ['remote', 'dir', 'authorName', 'authorEmail', 'sshKey'] as const;
 
 const ms = z.number().int().min(1_000).max(MAX_TIMER_MS);   // larger values would fire after 1 ms in Bun (verified)
@@ -19,6 +23,7 @@ const SharedShape = {
   ntfyUrl: z.url({ protocol: /^https?$/ }),
   idleMs: ms, fallbackMs: ms, maxWaitMs: ms,
   ignore: z.array(glob),
+  autoCommit: z.enum(AUTO_COMMIT_MODES),
 };
 const InstanceOnlyShape = {
   sshKey: z.string().trim().min(1).regex(/^[^\0\r\n]+$/, 'not a valid private-key path'),
@@ -28,8 +33,10 @@ export const InstanceSchema = z.object({ ...SharedShape, ...InstanceOnlyShape })
 export const RepoSchema = z.object(SharedShape).partial();             // non-strict: strips unknown keys
 
 export type InstanceInput = Partial<{ remote: string; dir: string; branch: string; ntfyUrl: string; idleMs: number;
-  fallbackMs: number; ignore: string[]; authorName: string; authorEmail: string; sshKey: string; maxWaitMs: number }>;
-export type RepoInput = Partial<Pick<Required<InstanceInput>, 'branch' | 'ntfyUrl' | 'idleMs' | 'fallbackMs' | 'ignore' | 'maxWaitMs'>>;
+  fallbackMs: number; ignore: string[]; authorName: string; authorEmail: string; sshKey: string; maxWaitMs: number;
+  autoCommit: AutoCommit }>;
+export type RepoInput = Partial<Pick<Required<InstanceInput>, 'branch' | 'ntfyUrl' | 'idleMs' | 'fallbackMs' | 'ignore' | 'maxWaitMs'
+  | 'autoCommit'>>;
 // Zero-config defaults read from the synced folder's own checkout when no flag or file sets them (src/repo-defaults.ts):
 // `dir` is the current directory, `remote` its `origin` URL, `branch` the branch checked out there. Read once at
 // startup, so they rank below the repo layer and above the built-in defaults (which have no `branch`).
@@ -45,7 +52,7 @@ export type DirectLayers = Omit<ConfigLayers, 'repo'>;
 export type ResolvedConfig = {
   remote?: string; dir?: string;                    // absolute, ~-expanded (not realpath'd)
   branch?: string;                                  // no default: a layer or the checkout names it, or nothing starts
-  ntfyUrl?: string; idleMs: number; fallbackMs: number; maxWaitMs: number;
+  ntfyUrl?: string; idleMs: number; fallbackMs: number; maxWaitMs: number; autoCommit: AutoCommit;
   ignore: string[]; authorName: string; authorEmail: string; sshKey?: string;
 };
 export type ReadyConfig = ResolvedConfig & { dir: string; branch: string };
@@ -55,13 +62,13 @@ type ConfigKey = keyof ResolvedConfig;
 type SharedKey = (typeof SHARED_KEYS)[number];
 
 // Canonical key order: changedKeys() and resolveConfig() report keys in this order.
-const CONFIG_KEYS = ['remote', 'dir', 'branch', 'ntfyUrl', 'idleMs', 'fallbackMs', 'maxWaitMs', 'ignore',
+const CONFIG_KEYS = ['remote', 'dir', 'branch', 'ntfyUrl', 'idleMs', 'fallbackMs', 'maxWaitMs', 'autoCommit', 'ignore',
   'authorName', 'authorEmail', 'sshKey'] as const satisfies readonly ConfigKey[];
 
 // The CLI flag for each config key. Also what install-service re-emits for CLI overrides.
 export const CONFIG_FLAGS: Readonly<Record<ConfigKey, string>> = {
   remote: '--remote', dir: '--dir', branch: '--branch', ntfyUrl: '--ntfy-url',
-  idleMs: '--idle-ms', fallbackMs: '--fallback-ms', maxWaitMs: '--max-wait-ms', ignore: '--ignore',
+  idleMs: '--idle-ms', fallbackMs: '--fallback-ms', maxWaitMs: '--max-wait-ms', autoCommit: '--auto-commit', ignore: '--ignore',
   authorName: '--author-name', authorEmail: '--author-email', sshKey: '--ssh-key',
 };
 
@@ -226,7 +233,7 @@ export async function loadRepoConfig(g: GitClient, blob: string | 'none', log: L
 export function resolveConfig(layers: ConfigLayers, host: string):
   { config: ResolvedConfig; sources: Record<keyof ResolvedConfig, ConfigLayerName> } {
   const defaults: Partial<ResolvedConfig> = {
-    idleMs: 300_000, fallbackMs: 3_600_000, maxWaitMs: 1_800_000, ignore: [],
+    idleMs: 300_000, fallbackMs: 3_600_000, maxWaitMs: 1_800_000, autoCommit: 'timers', ignore: [],
     authorName: `mdsync@${host}`, authorEmail: `mdsync@${host}.local`,
   };
   const out: Record<string, unknown> = {};
