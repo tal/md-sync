@@ -72,7 +72,22 @@ test('a healthy process is left alone, and the guard never keeps it alive', asyn
   expect(c.lines).toEqual(['started', 'done']);
 }, 30_000);
 
-test('a suspended process (laptop sleep, SIGSTOP) is not mistaken for a stalled loop', async () => {
+// Whether this OS really suspends and resumes a process. GitHub's macOS 26 VMs don't: a stopped `sh`, python, node or
+// bun child keeps running and then never wakes after SIGCONT, so the test below would only measure the VM.
+async function probeSuspend(): Promise<'works' | 'broken'> {
+  const p = Bun.spawn(['sh', '-c', 'sleep 1.5'], { stdin: 'ignore', stdout: 'ignore', stderr: 'ignore' });
+  await Bun.sleep(300);
+  p.kill('SIGSTOP');
+  await Bun.sleep(300);
+  p.kill('SIGCONT');
+  const r = await Promise.race([p.exited.then(() => 'works' as const), Bun.sleep(5_000).then(() => 'broken' as const)]);
+  if (r === 'broken') p.kill('SIGKILL');
+  return r;
+}
+const suspend = await probeSuspend();
+if (suspend === 'broken') console.warn('liveness: this OS does not resume a SIGSTOPped process; skipping the suspend test');
+
+test.skipIf(suspend === 'broken')('a suspended process (laptop sleep, SIGSTOP) is not mistaken for a stalled loop', async () => {
   const c = child(`
     for (let i = 0; i < 60; i++) await Bun.sleep(100);
     console.log('done');

@@ -1,6 +1,6 @@
 # CI integration test fixes
 
-CI had failed on `bun run test:integration` since 2026-10-13. Both runs failed on the same five tests. All were test-side problems; no `src/` change.
+CI had failed on `bun run test:integration` since 2026-10-13. Both runs failed on the same five tests. None was a bug in `src/`, which is unchanged.
 
 ## Linux (`ubuntu-latest`)
 
@@ -14,10 +14,23 @@ Learned: writing from `afterSurvey` is too early to count as a change in that ro
 
 ## macOS (`macos-latest`)
 
-- `liveness.test.ts` › a suspended process (SIGSTOP) is not mistaken for a stalled loop: on CI the child did not exit within 20 s of `SIGCONT` and the test's own SIGKILL ended it (exit 137). It does not reproduce locally on macOS: 12 runs with stop delays of 0–800 ms all passed.
-- The helper now drains the child's stderr, which was piped but never read, so a child that writes to stderr can't block on a full pipe. A failure now shows the exit code, the signal, stdout lines and stderr. If it fails again, that output is the next step.
+`liveness.test.ts` › a suspended process (SIGSTOP) is not mistaken for a stalled loop: on CI the child never exited after `SIGCONT`, and the test's 20 s timer killed it (exit 137). A side agent flagged that this could mean a laptop waking from sleep leaves md-sync frozen with the watchdog never firing. A throwaway branch (`debug/macos-sigstop`, deleted after use) reproduced it on the runner and captured `ps` and `sample` output:
+
+| Child process | Stopped by SIGSTOP? | Exits after SIGCONT? |
+|---|---|---|
+| `sh` loop with `sleep` | no (`ps` shows `S`, not `T`) | no, hangs |
+| `python3` | no, kept printing ticks | no, hangs |
+| `node` | no, kept printing ticks | no, hangs |
+| `bun` with no md-sync code | no | no, hangs |
+| `bun` with the liveness guard | no | no, hangs |
+
+- Cause: GitHub's macOS 26.6.2 VM (`RELEASE_ARM64_VMAPPLE` kernel) doesn't handle stop and continue signals, for any process. Every thread then sits in `kevent64` or `__ulock_wait` and never wakes. That is not md-sync and not Bun. The guard can't fire because its own worker thread is parked as well. Bare-metal macOS 27 passes.
+- Not evidence about laptop sleep: real sleep suspends the whole machine and doesn't go through SIGSTOP, and on the same VM the guard's real stall test (`a main thread that stops running is killed`) passes.
+- Fix: the test first checks the OS with a plain `sh -c 'sleep 1.5'` (stop, continue, expect it to exit within 5 s). If the OS fails that check, the test is skipped and a warning is logged. It still runs wherever suspend and resume work.
+- The helper also drains the child's stderr, which was piped but never read, and a failure now shows the exit code, the signal, stdout and stderr.
 
 ## Verified
 
 - Linux (Docker `oven/bun:1.4.2`, git 2.47): the move tests passed 3/3 times, and the lock test passes. `probes › currentBootId` fails only inside Docker (no boot id); it passes on CI.
+- macOS CI VM: the suspend probe reports `broken`, so the suspend test is skipped, and the other liveness tests pass. Locally the probe reports `works` and the test runs and passes.
 - `bunx tsc --noEmit` clean.
