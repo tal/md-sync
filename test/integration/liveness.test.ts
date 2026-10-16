@@ -8,7 +8,7 @@ afterEach(() => {
   for (const r of roots.splice(0)) rmSync(r, { recursive: true, force: true });
 });
 
-type ChildRun = { proc: Bun.Subprocess<'ignore', 'pipe', 'pipe'>; lines: string[]; exited: Promise<number> };
+type ChildRun = { proc: Bun.Subprocess<'ignore', 'pipe', 'pipe'>; lines: string[]; stderr: Promise<string>; exited: Promise<number> };
 
 // A child that starts the guard (stall 1.5 s, checks every 250 ms), then runs `body`.
 function child(body: string): ChildRun {
@@ -23,12 +23,14 @@ function child(body: string): ChildRun {
   `);
   const proc = Bun.spawn(['bun', script], { stdin: 'ignore', stdout: 'pipe', stderr: 'pipe' });
   const lines: string[] = [];
+  // drained so a chatty child never blocks on a full pipe, and shown when a test fails
+  const stderr = new Response(proc.stderr).text();
   const exited = (async () => {
     const text = await new Response(proc.stdout).text();
     lines.push(...text.split('\n').filter((l) => l !== ''));
     return proc.exited;
   })();
-  return { proc, lines, exited };
+  return { proc, lines, stderr, exited };
 }
 
 async function withKill<T>(c: ChildRun, ms: number, p: Promise<T>): Promise<T> {
@@ -79,8 +81,10 @@ test('a suspended process (laptop sleep, SIGSTOP) is not mistaken for a stalled 
   c.proc.kill('SIGSTOP');
   await Bun.sleep(3_000);   // twice the stall limit
   c.proc.kill('SIGCONT');
-  expect(await withKill(c, 20_000, c.exited)).toBe(0);
-  expect(c.lines).toEqual(['started', 'done']);
+  const code = await withKill(c, 20_000, c.exited);
+  // one object, so a failure shows what the child printed and how it ended
+  expect({ code, signal: c.proc.signalCode, lines: c.lines, stderr: await c.stderr })
+    .toMatchObject({ code: 0, signal: null, lines: ['started', 'done'] });
 }, 30_000);
 
 test('onReady fires once the worker is running and watching', async () => {

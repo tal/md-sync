@@ -381,15 +381,26 @@ describe('termination, the done map and resume', () => {
     const r = await fetchRemote(fx.c);
     let i = 0;
     let last = '';
-    const timer = setInterval(() => {
+    const rewrite = () => {
       last = `rewrite ${++i}\n`;
       writeFileSync(join(fx.c.dir, 'note.md'), last);
-    }, 50);
+    };
+    const timer = setInterval(rewrite, 50);
+    // The pause makes round 1 see a change. A fast round 2 (Linux) can fall between two timer writes and finish with a
+    // plain conflict copy, so a write inside round 2's write pass makes the third round's identity mode certain.
+    let round = 0;
+    moveTestHooks.afterSurvey = (n) => { round = n; };
+    moveTestHooks.inWritePass = () => {
+      if (round === 2) rewrite();
+      return 'go';
+    };
     process.env.MDSYNC_TEST_MOVE_PAUSE_MS = '200';
     let mv;
     try {
       mv = await moveWorktree(fx.ctx, pullInput(h, r));
     } finally {
+      delete moveTestHooks.afterSurvey;
+      delete moveTestHooks.inWritePass;
       delete process.env.MDSYNC_TEST_MOVE_PAUSE_MS;
       await Bun.sleep(120);
       clearInterval(timer);

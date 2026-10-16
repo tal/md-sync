@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import {
-  closeSync, existsSync, fstatSync, fsyncSync, mkdtempSync, openSync, readFileSync, realpathSync, rmSync, unlinkSync,
-  utimesSync, writeFileSync, writeSync,
+  closeSync, existsSync, fstatSync, fsyncSync, mkdtempSync, openSync, readFileSync, realpathSync, renameSync, rmSync,
+  statSync, unlinkSync, utimesSync, writeFileSync, writeSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -277,10 +277,13 @@ describe('release', () => {
   test('does not remove a lock file that was replaced (different inode)', () => {
     const h = acquire();
     const mine = readFileSync(paths.lock, 'utf8');
-    unlinkSync(paths.lock);
+    // moved aside, not unlinked: Linux hands a just-freed inode number straight to the next file
+    renameSync(paths.lock, `${paths.lock}.old`);
     writeFileSync(paths.lock, mine);                     // same bytes, new inode
+    expect(statSync(paths.lock).ino).not.toBe(statSync(`${paths.lock}.old`).ino);
     h.release();
     expect(existsSync(paths.lock)).toBe(true);
+    rmSync(`${paths.lock}.old`);
   });
 
   test('does not remove our inode once its pid or startedAt changed', () => {
