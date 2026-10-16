@@ -1,6 +1,6 @@
 # CI integration test fixes
 
-CI had failed on `bun run test:integration` since 2026-10-13. Both runs failed on the same five tests. None was a bug in `src/`. The only `src/` change is a test-only pause knob.
+CI had failed on `bun run test:integration` since 2026-10-13. Both runs failed on the same five tests. Most were test problems. One was a real poll-watcher bug (below), and `src/` also gained a test-only pause knob.
 
 ## Linux (`ubuntu-latest`)
 
@@ -19,6 +19,14 @@ Integration used to fail first, so `test:acceptance` never ran on Linux. Once it
 - `33-concurrent-writes` › a path that keeps changing through the whole move ends in an identity copy: same cause as the integration move tests. The agent saves every 20 ms, and a Linux round 2 often finishes inside one of those gaps. The daemon runs as a separate process, so `moveTestHooks` can't reach it.
 - Fix: a new test hook, `MDSYNC_TEST_MOVE_PAUSE_ROUNDS` (default 1, so other tests are unchanged). It holds rounds 1 to N, not just round 1. The test sets it to 2. `pauseForTests` in `src/move.ts` now takes the round number.
 - In Docker, `33-concurrent-writes` › P2 times out with `live git detection unavailable`. It does the same on the unchanged code, and it passes on CI. Like `probes`, Docker has no boot id.
+
+## Poll watcher: a note created right after an ignore reload could go unreported (real bug)
+
+The next CI run failed `watcher.test.ts` › startWatcher (poll) › setIgnore: a note created in an un-ignored folder before the next scan is reported. It had passed the run before. This was a real bug, not a flaky test:
+
+- When a reload un-ignores a folder, the poll scan treated an entry it hadn't seen before as pre-existing when the entry's `max(mtime, ctime)` was earlier than the reload's `Date.now()`. Linux stamps files from a coarse kernel clock that runs behind `Date.now()`. Measured in Docker: 1999 of 2000 files got a time *earlier* than a `Date.now()` read just before creating them (worst 1.1 ms; on macOS, 0 of 2000). So a note created within one clock tick after a reload looked older than the reload and never armed the backup timers.
+- Fix: `RULES_CLOCK_SLACK_MS = 2_000` (new export of `src/watcher.ts`). An entry counts as pre-existing only if it looks older than the reload by more than 2 s. The 2 s also covers coarse-timestamp filesystems: FAT stores mtime in 2 s steps, HFS+ in 1 s. Cost: an entry changed in the 2 s before the reload is reported. That only arms the backup timers, and the daemon runs a status check after every reload anyway.
+- Tests: the reload test creates its new note immediately after `setIgnore`, which is the case that used to fail. Its "old" file, and `scratch.tmp` in the matcher-swap test, are now made more than the slack before the reload.
 
 ## macOS (`macos-latest`)
 

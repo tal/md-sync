@@ -43,6 +43,11 @@ const POLL_CONCURRENCY = 64;
 export const REPORT_THROTTLE_MS = 2_000;
 // FSEvents can hand over a write made just before the stream started; ignoreInitial semantics: not ours to report.
 const STARTUP_WINDOW_MS = 1_000;
+// How much older than a reload a newly un-ignored entry must look before the poll scan takes it for one that existed
+// before it. File times come from another clock: Linux stamps them from a coarse kernel clock that runs behind
+// Date.now() (by up to a tick), FAT keeps mtime in 2 s steps and HFS+ in 1 s. An entry inside the slack is reported:
+// an extra report only arms the backup timers, a missed one leaves a new note unsynced until something else changes.
+export const RULES_CLOCK_SLACK_MS = 2_000;
 const PRUNE_AT = 2_000;
 
 const BATCHED_EVENTS: ReadonlySet<string> = new Set(['add', 'change', 'unlink', 'addDir', 'unlinkDir']);
@@ -388,7 +393,7 @@ function startPoll(w: Wiring): Promise<WatcherHandle> {
         if (was === sig) continue;
         if (was === undefined && prevRules.ignored(rel)) {
           const at = changedAt(join(root, rel));
-          if (at === 'none' || at < rulesChangedAt) continue;
+          if (at === 'none' || at < rulesChangedAt - RULES_CLOCK_SLACK_MS) continue;
         }
         if (was === undefined && sig === 'd') newDirs.push(rel);
         reporter.report(rel);

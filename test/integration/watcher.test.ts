@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { compileIgnore } from '../../src/ignore';
 import { createLogger, type Logger } from '../../src/log';
-import { pollIntervalMs, startWatcher, watcherBackendFor, type WatcherBackend, type WatcherHandle } from '../../src/watcher';
+import { pollIntervalMs, RULES_CLOCK_SLACK_MS, startWatcher, watcherBackendFor, type WatcherBackend, type WatcherHandle } from '../../src/watcher';
 
 type Line = { level: string; msg: string; [k: string]: unknown };
 
@@ -304,6 +304,8 @@ for (const backend of BACKENDS) describe(`startWatcher (${backend})`, () => {
     put(root, 'scratch.tmp');
     await until(() => w.seen().has('drafts/x.md') && w.seen().has('drafts/new.md'), 'un-ignored drafts');
 
+    // scratch.tmp, un-ignored next, must predate that reload by more than the clock slack to count as old
+    await Bun.sleep(RULES_CLOCK_SLACK_MS);
     w.handle.setIgnore(compileIgnore(['drafts']));
     await Bun.sleep(300);
     w.batches.length = 0;
@@ -360,8 +362,9 @@ for (const backend of BACKENDS) describe(`startWatcher (${backend})`, () => {
       const root = tempRoot();
       put(root, 'drafts/old.md');
       const w = await watchWith(root, { ignore: ['drafts'] });
-      // Ensure the old file predates the reload even when startup finishes within the same clock millisecond.
-      await Bun.sleep(20);
+      // The old file predates the reload by more than the clock slack; the new one is created right after it, where a
+      // Linux file time (a coarse clock) usually reads earlier than the reload's Date.now() and was taken for old.
+      await Bun.sleep(RULES_CLOCK_SLACK_MS + 100);
       w.handle.setIgnore(compileIgnore([]));
       put(root, 'drafts/new.md');
       await until(() => w.seen().has('drafts/new.md'), 'drafts/new.md', 3_000);
