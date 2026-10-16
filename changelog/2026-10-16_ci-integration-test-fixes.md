@@ -1,6 +1,6 @@
 # CI integration test fixes
 
-CI had failed on `bun run test:integration` since 2026-10-13. Both runs failed on the same five tests. None was a bug in `src/`, which is unchanged.
+CI had failed on `bun run test:integration` since 2026-10-13. Both runs failed on the same five tests. None was a bug in `src/`. The only `src/` change is a test-only pause knob.
 
 ## Linux (`ubuntu-latest`)
 
@@ -11,6 +11,14 @@ CI had failed on `bun run test:integration` since 2026-10-13. Both runs failed o
 | `move-recovery.test.ts` › d28-data-4 › copy-only / rename-only: a path rewritten every 50 ms … | Same cause | Same fix |
 
 Learned: writing from `afterSurvey` is too early to count as a change in that round, because M3 classifies from a fresh read. A write has to land between the plan and the switch (the write pass) to be seen as a race.
+
+## Linux acceptance (found once integration passed)
+
+Integration used to fail first, so `test:acceptance` never ran on Linux. Once it did, one test failed:
+
+- `33-concurrent-writes` › a path that keeps changing through the whole move ends in an identity copy: same cause as the integration move tests. The agent saves every 20 ms, and a Linux round 2 often finishes inside one of those gaps. The daemon runs as a separate process, so `moveTestHooks` can't reach it.
+- Fix: a new test hook, `MDSYNC_TEST_MOVE_PAUSE_ROUNDS` (default 1, so other tests are unchanged). It holds rounds 1 to N, not just round 1. The test sets it to 2. `pauseForTests` in `src/move.ts` now takes the round number.
+- In Docker, `33-concurrent-writes` › P2 times out with `live git detection unavailable`. It does the same on the unchanged code, and it passes on CI. Like `probes`, Docker has no boot id.
 
 ## macOS (`macos-latest`)
 

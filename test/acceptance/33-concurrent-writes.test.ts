@@ -146,7 +146,9 @@ test('a path that keeps changing through the whole move ends in an identity copy
   const t = await setupTestEnv('cw-changing');
   const r = await createRemote(t, { files: { 'README.md': '# n\n', 'a.md': SIX } });
   const a = await cloneRemote(t, r, 'a');
-  const A = await startDaemon(t, { name: 'A', dir: a.dir, remote: r, env: PAUSE, config: QUIET });
+  // rounds 1 and 2 both pause, so the writer changes the path in both and round 3 is in identity mode: unpaused, a
+  // fast round 2 (Linux) can fall between two saves and end the move with a plain conflict copy
+  const A = await startDaemon(t, { name: 'A', dir: a.dir, remote: r, env: { ...PAUSE, MDSYNC_TEST_MOVE_PAUSE_ROUNDS: '2' }, config: QUIET });
   await r.push({ 'a.md': SIX.replace('l1\n', 'l1 remote\n') }, 'remote');
   let n = 0;
   let writing: 'on' | 'off' = 'on';

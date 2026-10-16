@@ -858,9 +858,14 @@ function appendTemps(ctx: RunContext, temps: readonly MoveTemp[]): MoveJournal {
   return part as MoveJournal;
 }
 
-async function pauseForTests(ctx: RunContext, reason: MoveReason): Promise<void> {
+// Test hook: MDSYNC_TEST_MOVE_PAUSE_MS holds a move between its plan and its first write. It holds round 1 only, or
+// rounds 1 to MDSYNC_TEST_MOVE_PAUSE_ROUNDS, so a test can make a path change in two rounds in a row (identity mode)
+// even where a fast round would otherwise fall between two of the writer's saves.
+async function pauseForTests(ctx: RunContext, reason: MoveReason, round = 1): Promise<void> {
   const ms = Number(process.env.MDSYNC_TEST_MOVE_PAUSE_MS ?? '');
   if (!Number.isFinite(ms) || ms <= 0) return;
+  const rounds = Number(process.env.MDSYNC_TEST_MOVE_PAUSE_ROUNDS ?? '1');
+  if (round > (Number.isFinite(rounds) && rounds >= 1 ? rounds : 1)) return;
   ctx.log.debug('worktree move paused', { reason, pauseMs: ms });
   await Bun.sleep(ms);
 }
@@ -1273,7 +1278,7 @@ class MoveRun {
         } else {
           appendTemps(this.ctx, temps);
         }
-        if (round === 1) await pauseForTests(this.ctx, this.i.reason);
+        await pauseForTests(this.ctx, this.i.reason, round);
         const wp = writePass(this.ctx, plan.ordered);                               // M5
         if (wp !== 'ok') return await this.fail(`worktree move failed: ${wp}`);
         const r = await runOps(this.ctx, plan.ordered, this.caps, (p) => this.nameRaw(p), { onChanged: 'skip' });
