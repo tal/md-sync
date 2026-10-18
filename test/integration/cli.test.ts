@@ -144,13 +144,36 @@ describe('the cli process', () => {
     const json = await runCli(t, ['status', '--dir', a.dir, '--format', 'json']);
     expect(json.code).toBe(0);
     expect(JSON.parse(json.stdout)).toMatchObject({ dir: a.dir, daemon: { state: 'stopped' }, lastRun: null,
-      consecutiveFailures: 0, keptStashes: [], unpushed: 0, pending: [{ xy: '??', path: 'new.md' }] });
+      consecutiveFailures: 0, keptStashes: [], unpushed: 0, pending: [{ xy: '??', path: 'new.md' }],
+      health: { status: 'failing', issues: ['daemon not running', 'no state file'] }, ntfy: 'off', fallbackMs: 3_600_000,
+      lastOkAt: null, nextRetryAt: null, stuck: null });
     const text = await runCli(t, ['status', '--dir', a.dir]);
     expect(text.code).toBe(0);
     expect(text.stdout).toMatch(/^daemon:\s+not running$/m);
     expect(text.stdout).toMatch(/^pending:\s+1 change$/m);
     expect(text.stdout).toContain('  ?? new.md\n');
     expect(text.stdout).toMatch(/^unpushed:\s+0 commits$/m);
+    expect(text.stdout).toMatch(/^health:\s+failing \(daemon not running; no state file\)$/m);
+    expect(text.stdout).not.toMatch(/^ntfy:/m);
+  });
+
+  test('status reports the ntfy record from the state file, and `unknown` before the daemon writes one', async () => {
+    const t = await setupTestEnv('cli-status-ntfy');
+    const remote = await createRemote(t);
+    const a = await cloneRemote(t, remote, 'a');
+    const topicUrl = 'https://ntfy.example/status-secret-topic';
+    const paths = statePathsFor(a.dir, t.env);
+    const before = JSON.parse((await runCli(t, ['status', '--dir', a.dir, '--json', '--ntfy-url', topicUrl])).stdout) as Record<string, unknown>;
+    expect(before.ntfy).toEqual({ state: 'unknown' });
+    const ntfy = { state: 'disconnected', since: '2026-10-18T11:00:00.000Z', lastError: 'HTTP 503', reconnects: 3 };
+    writeJson(paths.state, { version: 1, dir: a.dir, pid: 1, updatedAt: '2026-10-18T11:00:00.000Z', consecutiveFailures: 0,
+      keptStashes: [], ntfy });
+    const json = await runCli(t, ['status', '--dir', a.dir, '--json', '--ntfy-url', topicUrl]);
+    expect(JSON.parse(json.stdout)).toMatchObject({ ntfy, health: { status: 'failing',
+      issues: ['daemon not running', 'ntfy disconnected: HTTP 503'] } });
+    const text = await runCli(t, ['status', '--dir', a.dir, '--ntfy-url', topicUrl]);
+    expect(text.stdout).toMatch(/^ntfy:\s+disconnected since 2026-10-18T11:00:00Z, error: HTTP 503, no events yet, no messages yet, 3 reconnects$/m);
+    expect(json.stdout + text.stdout + text.stderr).not.toContain('status-secret-topic');
   });
 
   test('status: names the installed unit, and never repeats the repo-config warnings the daemon reports', async () => {

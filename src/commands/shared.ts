@@ -25,7 +25,7 @@ export type CliValues = {
   cwd?: string; config?: string; 'log-level'?: string;
   remote?: string; dir?: string; branch?: string; 'ntfy-url'?: string; 'author-name'?: string; 'author-email'?: string; 'ssh-key'?: string;
   'idle-ms'?: string; 'fallback-ms'?: string; 'max-wait-ms'?: string; 'auto-commit'?: string; ignore?: string[];
-  message?: string; wait?: boolean; format?: string; print?: boolean;
+  message?: string; wait?: boolean; format?: string; json?: boolean; print?: boolean;
   help?: boolean; version?: boolean;
 };
 

@@ -9,6 +9,19 @@ import type { OverriddenDelete, RunResult, StuckRecord } from './types';
 
 export type LastRun = Omit<RunResult, 'runId'> & { runId: number; finishedAt: string };
 export type KeptStash = { sha: string; reason: 'write-raced' | 'data-guard-stop' | 'failed'; at: string };
+// The daemon's ntfy subscription, for `status` and other apps that read this file. Never holds the URL: the topic is a
+// secret, and lastError is redacted like a log line.
+export type NtfyHealth = {
+  state: 'connected' | 'disconnected';
+  since: string;                     // when it entered `state`
+  lastConnectedAt?: string;          // last successful subscribe
+  lastDisconnectedAt?: string;       // last time a live stream dropped
+  lastError?: string;                // last failure (a dropped stream or a failed attempt)
+  lastMessageAt?: string;            // last bytes on the stream, keepalives included: stream liveness
+  lastEventAt?: string;              // last push-notification SHA
+  lastEventSha?: string;
+  reconnects: number;                // since the daemon started
+};
 export type StateFile = {
   version: 1; dir: string; pid: number; updatedAt: string;
   instance?: { configPath: string | 'none'; cli: InstanceInput };   // written by `run` and `install-service`
@@ -18,6 +31,7 @@ export type StateFile = {
   repoConfig?: { blob: string | 'none'; layer: RepoInput };   // last known rules; 'none' with {} records removal
                                      //   so invalid config keeps the same layer across restarts and one-off runs
   integrated?: string;               // the last RunResult.integrated: the origin/B commit HEAD contained
+  ntfy?: NtfyHealth;                 // only while ntfyUrl is set; each daemon start begins a fresh record
 };
 
 export function rememberRepoConfig(state: StateFile, repo: LoadedRepoConfig): void {
@@ -73,6 +87,7 @@ export type SettleEntry = { name: string; path: string; ino: string;
 // blocks a run.
 export type Journal = { rebase?: RebaseJournal; stash?: StashJournal; move?: MoveJournal; settle?: SettleEntry[] };
 
+const NTFY_OPTIONAL = ['lastConnectedAt', 'lastDisconnectedAt', 'lastError', 'lastMessageAt', 'lastEventAt', 'lastEventSha'] as const;
 const KEPT_REASONS: readonly KeptStash['reason'][] = ['write-raced', 'data-guard-stop', 'failed'];
 const REBASE_PHASES: readonly RebaseJournal['phase'][] = ['aborting', 'planned', 'stashed', 'reset', 'committed'];
 const STASH_PHASES: readonly StashJournal['phase'][] = ['planned', 'reset', 'written'];
@@ -170,6 +185,14 @@ function normalizeState(o: Record<string, unknown>): StateFile | 'none' {
   if (isRecord(st) && isString(st.head) && isString(st.remote) && isString(st.error) && isString(st.since)
     && (st.outcome === 'failed' || st.outcome === 'data-guard-stop')) {
     s.stuck = st as StuckRecord;
+  }
+  const nt = o.ntfy;
+  if (isRecord(nt) && (nt.state === 'connected' || nt.state === 'disconnected') && isString(nt.since)
+    && typeof nt.reconnects === 'number' && Number.isInteger(nt.reconnects) && nt.reconnects >= 0
+    && NTFY_OPTIONAL.every((k) => nt[k] === undefined || isString(nt[k]))) {
+    const h: NtfyHealth = { state: nt.state, since: nt.since, reconnects: nt.reconnects };
+    for (const k of NTFY_OPTIONAL) if (isString(nt[k])) h[k] = nt[k];
+    s.ntfy = h;
   }
   return s;
 }

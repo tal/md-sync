@@ -124,6 +124,13 @@ function urlParts(url: string): { host: string; path: string; query: string } {
   }
 }
 
+// The topic is the shared secret, and a query holds self-hosted ntfy's token: both are redacted from then on.
+export function addNtfySecrets(log: Pick<Logger, 'addSecret'>, url: string): void {
+  const { path, query } = urlParts(url);
+  if (path !== '') log.addSecret(path);
+  if (query !== '') log.addSecret(query);
+}
+
 // `text/html; charset=utf-8` -> 'text/html'. Cut to 100 chars: the header is the server's, and it goes into a log line.
 function mediaTypeOf(header: string | null): string | 'none' {
   const type = (header ?? '').split(';', 1)[0]?.trim().toLowerCase() ?? '';
@@ -163,15 +170,17 @@ function fetchUntilAbort(fetchImpl: typeof fetch, url: string, signal: AbortSign
   });
 }
 
+// onData: every chunk read off a live stream (ntfy's keepalives and `open` events too). onDisconnect: each failed
+// attempt or dropped stream, with the redacted text `ntfy disconnected` logs; never after stop().
 export function startNtfy(o: { url: string; log: Logger; onConnect: (n: 'first' | 'reconnect') => void;
-  onSha: (sha: string) => void; clock?: Clock; fetchImpl?: typeof fetch }): NtfyHandle {
+  onSha: (sha: string) => void; onData?: () => void; onDisconnect?: (d: { error: string; retryInMs: number }) => void;
+  clock?: Clock; fetchImpl?: typeof fetch }): NtfyHandle {
   const { log } = o;
   const clock = o.clock ?? realClock;
   const fetchImpl = o.fetchImpl ?? fetch;
   const sseUrl = sseUrlOf(o.url);
-  const { host, path, query } = urlParts(o.url);
-  if (path !== '') log.addSecret(path);   // the topic is the shared secret
-  if (query !== '') log.addSecret(query);
+  const { host } = urlParts(o.url);
+  addNtfySecrets(log, o.url);
 
   let state: 'running' | 'stopped' = 'running';
   let conn = new AbortController();     // the current fetch + read
@@ -238,6 +247,7 @@ export function startNtfy(o: { url: string; log: Logger; onConnect: (n: 'first' 
           const { value, done } = await reader.read();
           if (done || ac.signal.aborted) return failed('stream ended');
           kick();
+          guarded('ntfy.onData', () => o.onData?.());
           const events = parser.push(decoder.decode(value, { stream: true }));
           if (events === 'line-too-long') {
             abortWith('line-too-long');
@@ -278,6 +288,7 @@ export function startNtfy(o: { url: string; log: Logger; onConnect: (n: 'first' 
       if (!requested) failures++;
       const retryInMs = requested || pause.signal.aborted ? 0 : expBackoffMs(failures, NTFY_BACKOFF);
       log.warn('ntfy disconnected', { error: r.error, retryInMs });
+      guarded('ntfy.onDisconnect', () => o.onDisconnect?.({ error: errorText(r.error), retryInMs }));
       if (retryInMs > 0) await sleepOn(clock, retryInMs, pause.signal);
     }
   })();

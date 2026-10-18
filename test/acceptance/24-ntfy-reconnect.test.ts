@@ -1,7 +1,9 @@
 // ntfy connect / reconnect catch-up runs.
 import { afterEach, expect, test } from 'bun:test';
+import { readFileSync } from 'node:fs';
+import { statePathsFor } from '../../src/paths';
 import {
-  is, cleanupAll, cloneRemote, createRemote, expectNoMdsyncArtifacts, fakeNtfy, remoteNotifier, setupTestEnv, startDaemon,
+  is, cleanupAll, cloneRemote, createRemote, expectNoMdsyncArtifacts, fakeNtfy, remoteNotifier, runCli, setupTestEnv, startDaemon,
 } from '../harness';
 
 afterEach(cleanupAll);
@@ -38,10 +40,24 @@ test('every connect queues a catch-up run, and a dropped stream reconnects with 
   expect(await a.read('remote.md')).toBe('after reconnect\n');
   expect(await a.head()).toBe(sha);
 
-  // The topic is the shared secret: only the host is ever logged.
+  // The state file records the subscription for other apps, and `status --json` reports it with the health verdict.
+  const statePath = statePathsFor(a.dir, t.env).state;
+  const stateText = readFileSync(statePath, 'utf8');
+  expect((JSON.parse(stateText) as { ntfy: unknown }).ntfy).toMatchObject({ state: 'connected', reconnects: 1,
+    lastEventSha: sha, lastError: expect.any(String), lastConnectedAt: expect.any(String),
+    lastDisconnectedAt: expect.any(String), lastMessageAt: expect.any(String), lastEventAt: expect.any(String) });
+  const status = await runCli(t, ['status', '--dir', a.dir, '--json']);
+  const json = JSON.parse(status.stdout) as Record<string, unknown>;
+  expect(json.ntfy).toMatchObject({ state: 'connected', lastEventSha: sha });
+  expect(json.health).toMatchObject({ status: expect.stringMatching(/^(healthy|degraded)$/) });
+  expect(json.fallbackMs).toEqual(expect.any(Number));
+
+  // The topic is the shared secret: only the host is ever logged, stored or reported.
   const topic = n.topicUrl.slice(n.topicUrl.lastIndexOf('/') + 1);
   expect(JSON.stringify(A.logs)).not.toContain(topic);
   expect(A.stderr()).not.toContain(topic);
+  expect(JSON.stringify((JSON.parse(stateText) as { ntfy: unknown }).ntfy)).not.toContain(topic);
+  expect(status.stdout).not.toContain(topic);
   await expectNoMdsyncArtifacts(t, [a], r, (p) => ['README.md', 'remote.md'].includes(p));
 }, 90_000);
 

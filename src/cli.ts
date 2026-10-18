@@ -37,6 +37,7 @@ const OPTIONS = {
   message: { type: 'string', short: 'm' },
   wait: { type: 'boolean' },
   format: { type: 'string' },
+  json: { type: 'boolean' },
   print: { type: 'boolean' },
   help: { type: 'boolean', short: 'h' },
   version: { type: 'boolean' },
@@ -47,6 +48,7 @@ const COMMAND_FLAGS: Readonly<Record<string, { command: Command; flag: string }>
   message: { command: 'flush', flag: '--message' },
   wait: { command: 'flush', flag: '--wait' },
   format: { command: 'status', flag: '--format' },
+  json: { command: 'status', flag: '--json' },
   print: { command: 'install-service', flag: '--print' },
 };
 
@@ -82,7 +84,7 @@ Config flags (any command; they override the config file):
   --log-level <level>       debug, info, warn or error (env: MDSYNC_LOG_LEVEL)
 
 flush [path...]:  -m, --message <text>   --wait | --no-wait   (no paths: commit everything pending)
-status:           --format <text|json>
+status:           --format <text|json>, --json (same as --format json)
 install-service:  --print (write the unit to stdout instead of installing it)
 
   -h, --help        show this help
@@ -128,6 +130,12 @@ export function parseCli(argv: readonly string[]): Parsed {
   if (values.format !== undefined && values.format !== 'text' && values.format !== 'json') {
     throw new UsageError(`--format must be text or json, not "${values.format}"`);
   }
+  // --json is `--format json`, converted here so commands only ever read `format`
+  if (values.json === true) {
+    if (values.format === 'text') throw new UsageError('--json conflicts with --format text');
+    values.format = 'json';
+  }
+  delete values.json;
   return { kind: 'command', command, values, paths };
 }
 

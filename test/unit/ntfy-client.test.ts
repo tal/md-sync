@@ -135,6 +135,31 @@ describe('startNtfy', () => {
     expect(raw.join('\n')).not.toContain('private-topic');
   });
 
+  test('onData fires for every chunk (keepalives too) and onDisconnect gets the redacted error; neither after stop()', async () => {
+    const { log } = testLog();
+    const clock = new ManualClock();
+    const f = fakeFetch();
+    const data: number[] = [];
+    const drops: { error: string; retryInMs: number }[] = [];
+    const h = startNtfy({ url: URL_, log, clock, fetchImpl: f.impl, onConnect: () => {}, onSha: () => {},
+      onData: () => data.push(clock.now()), onDisconnect: (d) => drops.push(d) });
+    handles.push(h);
+    await until(() => f.calls.length === 1, 'fetch');
+    f.calls[0]?.fail(new Error('connect to https://ntfy.example/my-secret-topic-123/sse failed'));
+    await until(() => drops.length === 1, 'first drop');
+    expect(drops[0]).toEqual({ error: 'connect to https://ntfy.example/***/sse failed', retryInMs: 1_000 });
+    clock.advance(1_000);
+    await until(() => f.calls.length === 2, 'retry');
+    const body = sseBody();
+    f.calls[1]?.respond(body.res);
+    body.send(': keepalive\n\n');
+    body.send(message(SHA));
+    await until(() => data.length === 2, 'two chunks');
+    expect(drops.length).toBe(1);
+    await h.stop();
+    expect(drops.length).toBe(1);
+  });
+
   test('a fetch that never resolves is aborted by the 120 s watchdog', async () => {
     const { log, lines } = testLog();
     const clock = new ManualClock();

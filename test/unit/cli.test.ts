@@ -40,6 +40,15 @@ describe('parseCli', () => {
     expect(parseCli(['flush', '--no-wait'])).toEqual({ kind: 'command', command: 'flush', values: { wait: false }, paths: [] });
   });
 
+  test('status --json is --format json', () => {
+    const json: ReturnType<typeof parseCli> = { kind: 'command', command: 'status', values: { format: 'json' }, paths: [] };
+    expect(parseCli(['status', '--json'])).toEqual(json);
+    expect(parseCli(['status', '--json', '--format', 'json'])).toEqual(json);
+    expect(parseCli(['status', '--format', 'json'])).toEqual(json);
+    expect(() => parseCli(['status', '--json', '--format', 'text'])).toThrow(UsageError);
+    expect(() => parseCli(['flush', '--json'])).toThrow(UsageError);
+  });
+
   test('--cwd is a global flag', () => {
     expect(parseCli(['--cwd', '/x', 'status'])).toEqual({ kind: 'command', command: 'status', values: { cwd: '/x' }, paths: [] });
   });

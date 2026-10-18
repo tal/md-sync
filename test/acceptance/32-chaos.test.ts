@@ -335,7 +335,7 @@ async function chaos(seed: number): Promise<void> {
     const st = await runCli(t, ['status', '--format', 'json', '--dir', d.clone.dir]);
     const sj = JSON.parse(st.stdout) as { stuck?: unknown; keptStashes?: { sha: string; reason: string }[]; unpushed?: number;
       lastRun?: { outcome?: string } };
-    if (sj.stuck !== undefined) problems.push(`${d.name}: stuck ${JSON.stringify(sj.stuck)}`);
+    if (sj.stuck !== null) problems.push(`${d.name}: stuck ${JSON.stringify(sj.stuck)}`);
     // A stash replay whose write raced an agent keeps the stash rather than drop it: by design, reported.
     // Kept for any other reason, or a stash nothing accounts for, is a problem.
     const kept = sj.keptStashes ?? [];

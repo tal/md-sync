@@ -18,12 +18,13 @@ import { errorText, type Logger } from './log';
 import { SETTLE_GRACE_MS, settlePending } from './move';
 import { type NetworkChange, NetworkWatcher } from './netwatch';
 import { startNtfy, type NtfyHandle } from './ntfy';
+import { freshNtfyHealth, nextNtfyHealth, type NtfyHealthEvent, ntfyWriteDue } from './ntfy-health';
 import { canonicalDir, ensureStateDir, type StatePaths, statePathsFor } from './paths';
 import { aheadCount, ignoredDirs, pendingChanges } from './pending';
 import { failedRunResult, SyncQueue } from './queue';
 import { type LivenessGuard, LOOP_STALL_MS, startLivenessGuard } from './liveness';
 import { killChildrenGracefully } from './spawn';
-import { rememberRepoConfig, type StateFile, writeState } from './state';
+import { type NtfyHealth, rememberRepoConfig, type StateFile, writeState } from './state';
 import { syncRun } from './sync';
 import { BackupTimers, IntervalTimer, WakeDetector } from './timers';
 import {
@@ -190,6 +191,10 @@ class Daemon {
   #degraded: { poll: IntervalTimer; lastAttemptAt: number } | 'none' = 'none';
   #batching: { kind: 'idle' } | { kind: 'busy'; next: Set<string> } = { kind: 'idle' };
   #ntfy: NtfyHandle | undefined;
+  // Kept out of #state: recordRun awaits git and then replaces #state, which would undo a change made meanwhile.
+  // #writeState adds it to every write.
+  #ntfyHealth: NtfyHealth | 'off' = 'off';
+  #stateWrittenAt = Number.NEGATIVE_INFINITY;   // clock ms of the last state-file write, for the message throttle
   #timers: BackupTimers | undefined;
   #fallback: IntervalTimer | undefined;
   #wake: WakeDetector | undefined;
@@ -225,6 +230,7 @@ class Daemon {
     this.#paths = o.paths;
     this.#lock = o.lock;
     this.#state = loadStateOrFresh(o.paths, o.realDir);
+    delete this.#state.ntfy;   // a previous daemon's subscription; this one records its own
     let resolve: (code: number) => void = () => {};
     const promise = new Promise<number>((r) => { resolve = r; });
     this.#exit = { resolve, promise, state: 'open' };
@@ -568,15 +574,50 @@ class Daemon {
 
   #startNtfy(): void {
     const url = this.#need().config.ntfyUrl;
-    if (url === undefined) return;
+    if (url === undefined) {
+      if (this.#ntfyHealth !== 'off') {   // a reload removed ntfyUrl
+        this.#ntfyHealth = 'off';
+        this.#writeState();
+      }
+      return;
+    }
     try {
       this.#log.addSecret(new URL(url).pathname.replace(/\/+$/, ''));
     } catch {
       // zod validated the URL; nothing to hide otherwise
     }
+    if (this.#ntfyHealth === 'off') {
+      this.#ntfyHealth = freshNtfyHealth(new Date(this.#clock.now()).toISOString());
+      this.#writeState();
+    }
     this.#ntfy = startNtfy({ url, log: this.#log, clock: this.#clock,
-      onConnect: (n) => guard(this.#log, 'daemon.onConnect', () => this.#requestPull(n === 'first' ? 'ntfy-connect' : 'ntfy-reconnect')),
-      onSha: (sha) => guard(this.#log, 'daemon.onSha', () => this.#onSha(sha)) });
+      onConnect: (n) => guard(this.#log, 'daemon.onConnect', () => {
+        this.#onNtfyHealth({ kind: 'connected' });
+        this.#requestPull(n === 'first' ? 'ntfy-connect' : 'ntfy-reconnect');
+      }),
+      onData: () => guard(this.#log, 'daemon.onData', () => this.#onNtfyHealth({ kind: 'message' })),
+      onDisconnect: (d) => guard(this.#log, 'daemon.onDisconnect', () => this.#onNtfyHealth({ kind: 'disconnected', error: d.error })),
+      onSha: (sha) => guard(this.#log, 'daemon.onSha', () => {
+        this.#onNtfyHealth({ kind: 'event', sha });
+        return this.#onSha(sha);
+      }) });
+  }
+
+  // stop() ends the stream without an onDisconnect, so a live record is closed here (reload, shutdown).
+  async #stopNtfy(): Promise<void> {
+    const old = this.#ntfy;
+    this.#ntfy = undefined;
+    await old?.stop();
+    if (this.#ntfyHealth !== 'off' && this.#ntfyHealth.state === 'connected') {
+      this.#onNtfyHealth({ kind: 'disconnected', error: 'stopped' });
+    }
+  }
+
+  #onNtfyHealth(ev: NtfyHealthEvent): void {
+    if (this.#ntfyHealth === 'off') return;
+    const now = this.#clock.now();
+    this.#ntfyHealth = nextNtfyHealth(this.#ntfyHealth, ev, new Date(now).toISOString());
+    if (ntfyWriteDue(ev.kind, this.#stateWrittenAt, now) === 'write') this.#writeState();
   }
 
   async #onSha(sha: string): Promise<void> {
@@ -863,9 +904,7 @@ class Daemon {
     if (has('autoCommit') && next.autoCommit === 'off') this.#timers?.clear();
     if (has('fallbackMs')) this.#fallback?.setMs(next.fallbackMs);
     if (has('ntfyUrl')) {
-      const old = this.#ntfy;
-      this.#ntfy = undefined;
-      await old?.stop();
+      await this.#stopNtfy();
       this.#startNtfy();
     }
     if (has('ignore')) await this.#applyIgnore(ctx);
@@ -958,10 +997,8 @@ class Daemon {
     if (this.#degraded !== 'none') this.#degraded.poll.stop();
     this.#degraded = 'none';
     const watcher = this.#watcher;
-    const ntfy = this.#ntfy;
     this.#watcher = undefined;
-    this.#ntfy = undefined;
-    await Promise.allSettled([watcher?.close(), ntfy?.stop()]);
+    await Promise.allSettled([watcher?.close(), this.#stopNtfy()]);
   }
 
   async #forcedExit(sig: StopSignal | 'fatal'): Promise<void> {
@@ -1007,7 +1044,8 @@ class Daemon {
 
   #writeState(): void {
     try {
-      writeState(this.#paths, this.#state);
+      writeState(this.#paths, this.#ntfyHealth === 'off' ? this.#state : { ...this.#state, ntfy: this.#ntfyHealth });
+      this.#stateWrittenAt = this.#clock.now();
     } catch (e) {
       this.#log.error('callback failed', { source: 'daemon.writeState', error: e });
     }

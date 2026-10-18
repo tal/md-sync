@@ -30,6 +30,9 @@ const state: StateFile = {
   keptStashes: [{ sha: 'c'.repeat(40), reason: 'write-raced', at: '2026-10-08T11:00:00.000Z' }],
   stuck: { head: 'd'.repeat(40), remote: 'e'.repeat(40), outcome: 'failed', error: 'boom', since: '2026-10-08T10:00:00.000Z' },
   integrated: 'f'.repeat(40),
+  ntfy: { state: 'connected', since: '2026-10-08T11:59:00.000Z', lastConnectedAt: '2026-10-08T11:59:00.000Z',
+    lastDisconnectedAt: '2026-10-08T11:58:00.000Z', lastError: 'stream ended', lastMessageAt: '2026-10-08T12:00:00.000Z',
+    lastEventAt: '2026-10-08T11:59:30.000Z', lastEventSha: 'a'.repeat(40), reconnects: 2 },
 };
 
 const rebase: RebaseJournal = {
@@ -89,6 +92,35 @@ describe('state file', () => {
       keptStashes: [{ sha: 'x', reason: 'failed', at: 't' }],
       instance: { configPath: 'none', cli: {} },
     });
+  });
+});
+
+describe('state file: ntfy health', () => {
+  const base = { version: 1, dir: '/d' };
+  const read = (ntfy: unknown) => {
+    writeFileSync(paths.state, JSON.stringify({ ...base, ntfy }));
+    const s = readState(paths.state);
+    return s === 'none' ? 'none' : s.ntfy;
+  };
+
+  test('a minimal record is kept; unknown keys are dropped', () => {
+    expect(read({ state: 'disconnected', since: 't', reconnects: 0, url: 'https://ntfy.sh/topic' }))
+      .toEqual({ state: 'disconnected', since: 't', reconnects: 0 });
+  });
+
+  test('a malformed record is dropped, and the rest of the file is kept', () => {
+    for (const bad of [
+      'connected', null, [], {},
+      { state: 'up', since: 't', reconnects: 0 },
+      { state: 'connected', reconnects: 0 },
+      { state: 'connected', since: 't' },
+      { state: 'connected', since: 't', reconnects: -1 },
+      { state: 'connected', since: 't', reconnects: 1.5 },
+      { state: 'connected', since: 't', reconnects: 0, lastMessageAt: 5 },
+      { state: 'connected', since: 't', reconnects: 0, lastEventSha: null },
+    ]) {
+      expect(read(bad), JSON.stringify(bad)).toBeUndefined();
+    }
   });
 });
 

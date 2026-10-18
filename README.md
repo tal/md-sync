@@ -106,7 +106,7 @@ md-sync install-service                   # or run it as a service: the unit rec
 | `md-sync run` | Run the daemon in the foreground. Services and containers call this. Needs `dir` and `remote`; with neither given, it syncs the checkout it starts in (see [Quick start](#quick-start)). |
 | `md-sync flush [-m <text>] [--wait] [<path>...]` | Commit now and push. See [Flushing](#flushing-from-agents). |
 | `md-sync sync-once` | Run a single commit run (stage, commit, fetch, rebase, push) and exit. For cron, debugging and CI. Needs `dir` and `remote`, with the same defaults as `run`. |
-| `md-sync status [--format text\|json]` | Show whether the daemon is running, the last sync and its result, unpushed commits, the auto-commit mode, pending local changes and kept stashes. |
+| `md-sync status [--format text\|json] [--json]` | Show a health verdict, whether the daemon is running, the last sync and its result, the ntfy subscription, unpushed commits, the auto-commit mode, pending local changes and kept stashes. `--json` is `--format json`. |
 | `md-sync install-service [--print]` | Write and load a launchd agent (macOS) or a systemd user unit (Linux) that runs `md-sync run` with this config (started in a checkout with no `dir`, the unit records that folder and its origin). `--print` prints the unit instead. |
 | `md-sync uninstall-service` | Unload and remove that unit. A unit that isn't installed is not an error. |
 | `md-sync print-workflow` | Print the GitHub Action that posts pushes to ntfy. |
@@ -321,9 +321,11 @@ How md-sync handles each local and remote git state (branch, detached `HEAD`, ah
 ```text
 $ md-sync status --dir ~/agent-notes
 dir:         /Users/tal/agent-notes
+health:      degraded (2 paths not synced)
 daemon:      running (pid 4242)
 last sync:   2026-10-08T12:34:56Z  ok  (commit; in 1, out 2; 830 ms)
 head:        0123abcd4567
+ntfy:        connected since 2026-10-08T09:00:00Z, last event 2026-10-08T12:34:40Z (89ab01cd23ef), last message 2026-10-08T12:35:10Z
 unpushed:    0 commits
 auto commit: timers
 pending:     2 changes
@@ -331,7 +333,25 @@ pending:     2 changes
   ?? notes/b.md
 ```
 
-`--format json` prints the same as one JSON object; when the folder can't be read, its `repo` is `{"state": "unavailable", "why": …}` and `pending`, `unpushed` and `autoCommit` are `"unknown"`, never an empty list. `daemon:` shows `not running (stale lock, pid N)` if the machine rebooted under a running daemon. A `not synced:` section lists files that are never committed: local-only conflict copies (of gitignored files), paths that differ only in letter case on a case-insensitive disk (fix those by removing one spelling), and git repositories cloned or created inside the folder (their files never sync; move them out, or copy the files you want synced next to them).
+`--format json` (or `--json`) prints the same as one JSON object; when the folder can't be read, its `repo` is `{"state": "unavailable", "why": …}` and `pending`, `unpushed`, `notSynced` and `autoCommit` are `"unknown"`, never an empty list. Records that may be absent (`lastRun`, `lastOkAt`, `nextRetryAt`, `stuck`, `service`) are `null`, so the shape never changes:
+
+```json
+{"dir": "/Users/tal/agent-notes",
+ "health": {"status": "degraded", "issues": ["2 paths not synced"]},
+ "daemon": {"state": "running", "pid": 4242}, "service": null, "repo": {"state": "ok", "head": "0123abcd…"},
+ "lastRun": {"outcome": "ok", "kind": "commit", "finishedAt": "2026-10-08T12:34:56.830Z", …},
+ "lastOkAt": "2026-10-08T12:34:56.830Z", "consecutiveFailures": 0, "nextRetryAt": null, "stuck": null,
+ "keptStashes": [], "fallbackMs": 3600000,
+ "ntfy": {"state": "connected", "since": "2026-10-08T09:00:00.000Z", "lastConnectedAt": "2026-10-08T09:00:00.000Z",
+          "lastMessageAt": "2026-10-08T12:35:10.000Z", "lastEventAt": "2026-10-08T12:34:40.000Z",
+          "lastEventSha": "89ab01cd23ef…", "reconnects": 0},
+ "unpushed": 0, "pending": [], "notSynced": ["a (conflict mac 2026-10-08 1200).env", "Notes.md"], "autoCommit": "timers"}
+```
+
+- **`health.status`** is computed by md-sync so a dashboard doesn't re-derive it. `failing`: the daemon isn't running (stopped or a stale lock), a stuck record, 3 or more failed syncs in a row, no ok sync for 3 × `fallbackMs`, or runs but never an ok one. `degraded`: any failed sync in a row, a last run that wasn't `ok` (`conflict-resolved` included), ntfy disconnected, ntfy connected but silent for 5 minutes (ntfy sends a keepalive every 45 s), kept stashes, or `notSynced` paths. `unknown`: no state file yet. Otherwise `healthy`. `issues` lists every reason in plain words, never the ntfy topic or credentials.
+- **`ntfy`** is `"off"` without `ntfyUrl`, `{"state": "unknown"}` when it is set but the daemon hasn't recorded the subscription yet, and otherwise the daemon's record: `state` (`connected` or `disconnected`) and `since`, `lastConnectedAt`, `lastDisconnectedAt` (a live stream dropped), `lastError` (the last failure, redacted like the logs), `lastMessageAt` (the last bytes on the stream, keepalives included), `lastEventAt` and `lastEventSha` (the last push notification, echoes of this device's own pushes included) and `reconnects` since the daemon started.
+
+The daemon keeps that `ntfy` record in its state file, `$XDG_STATE_HOME/mdsync/<hash>.json` (the hash is of the folder path), for other apps to read. It is written at once on a connect, a drop or an event; a keepalive alone updates `lastMessageAt` on disk at most once a minute. Each daemon start begins a new record, a clean stop marks it `disconnected` (`lastError: "stopped"`), and it is absent without `ntfyUrl`. A daemon that died leaves its last record behind, so read it together with the daemon's `pid` or `status`'s `daemon`. `daemon:` shows `not running (stale lock, pid N)` if the machine rebooted under a running daemon. A `not synced:` section lists files that are never committed: local-only conflict copies (of gitignored files), paths that differ only in letter case on a case-insensitive disk (fix those by removing one spelling), and git repositories cloned or created inside the folder (their files never sync; move them out, or copy the files you want synced next to them).
 
 **Kept stashes.** To bring uncommitted edits across a pull, md-sync stashes them and replays them itself. If it can't verify that a replay landed on disk (for example, an agent wrote the same file at that moment), it keeps the stash instead of dropping it and logs `stash kept`. `md-sync status` lists these, for example `kept stashes: 1 (git -C /Users/tal/agent-notes stash list)`. md-sync never replays them again. To inspect one and recover anything missing from the working copy:
 
